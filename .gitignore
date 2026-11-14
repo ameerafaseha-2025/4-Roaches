@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.log
+.vite/
+
+.env
+.env.*
+*.pem
+*.key
+.claude/
+.DS_Store
