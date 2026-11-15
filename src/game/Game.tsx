@@ -4,6 +4,8 @@ import * as THREE from 'three';
 import { Food, Human, Projectiles } from './Actors';
 import { CameraRig, Player } from './Player';
 import { Room } from './Room';
+import { BanquetRoom } from './BanquetRoom';
+import { BANQUET_FOOD } from './Banquet';
 import { LEVELS } from './levels';
 import { bathroomFood } from './Bathroom';
 import { IntroSequence } from '../cinematic/IntroSequence';
@@ -60,6 +62,7 @@ function Experience({ level, runId }: { level: number; runId: number }) {
   const exitUnlocked = useGame((s) => s.exitUnlocked);
   const screen = useGame((s) => s.screen);
   const inGame = useGame((s) => s.inGame);
+  const banquet = useGame((s) => s.banquet);
   const preview = useGame((s) => s.previewMutation);
   const equipped = useGame((s) => s.equipped);
   if (screen === 'intro') return <IntroSequence />;
@@ -67,6 +70,18 @@ function Experience({ level, runId }: { level: number; runId: number }) {
   if (!inGame) {
     const showPreview = PREVIEW_SCREENS.has(screen);
     return <MenuStage mode={showPreview ? 'preview' : 'menu'} mutation={showPreview ? preview : equipped} />;
+  }
+  if (banquet) {
+    return (
+      <>
+        <BanquetRoom key={`banquet-${runId}`} />
+        {BANQUET_FOOD.map((pos, i) => (
+          <Food key={`banquet-${runId}-F${i}`} id={`B-F${i}`} position={pos} index={i} />
+        ))}
+        <Player key={`p-banquet-${runId}`} level={level} runId={runId} />
+        <CameraRig resetKey={`banquet-${runId}`} />
+      </>
+    );
   }
   return (
     <>

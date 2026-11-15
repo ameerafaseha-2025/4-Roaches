@@ -120,12 +120,6 @@ function Leg({ side, index, thighLen = 0.2, shinLen = 0.26 }: { side: -1 | 1; in
             <capsuleGeometry args={[0.022 * th, shinLen, 6, 10]} />
             <meshStandardMaterial color={look.leg} roughness={0.5} metalness={look.metal * 0.6} />
           </mesh>
-          {[0.3, 0.55, 0.8].map((f) => (
-            <mesh key={f} position={[side * shinLen * f, -0.016 * th, 0]} rotation={[0, 0, side * -0.9]}>
-              <coneGeometry args={[0.007 * th, 0.05, 5]} />
-              <meshStandardMaterial color="#20120a" roughness={0.6} />
-            </mesh>
-          ))}
           <group ref={foot} position={[side * shinLen, 0, 0]}>
             <mesh position={[side * 0.05, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
               <capsuleGeometry args={[0.012 * th, 0.09, 4, 8]} />
@@ -351,7 +345,7 @@ export function RoachModel({ mutation = 'basic', cosmetics }: { mutation?: Mutat
       <group ref={root} scale={0.9 * look.scale}>
         <group ref={body} scale={look.body}>
           <mesh position={[0, 0.19, 0.2]} scale={[1.05, 0.5, 1.05]} castShadow>
-            <sphereGeometry args={[0.19, 40, 28]} />
+            <sphereGeometry args={[0.19, 32, 22]} />
             <Shell color={r.shellLight} glow={glow} />
           </mesh>
           <mesh position={[0, 0.2, 0.21]} scale={[0.72, 0.36, 0.7]}>
@@ -380,7 +374,7 @@ export function RoachModel({ mutation = 'basic', cosmetics }: { mutation?: Mutat
           ))}
           {segments.map((seg, i) => (
             <mesh key={i} position={[0, 0.15 - i * 0.004, seg.z + 0.02]} scale={[seg.s * 0.95, 0.42, 0.55]} castShadow>
-              <sphereGeometry args={[0.2, 28, 18]} />
+              <sphereGeometry args={[0.2, 22, 14]} />
               <Shell color={seg.dark ? r.shell : new THREE.Color(r.shell).lerp(new THREE.Color(r.shellLight), 0.35).getStyle()} rough={0.32} glow={glow && seg.dark} />
             </mesh>
           ))}

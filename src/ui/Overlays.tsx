@@ -139,9 +139,10 @@ export function VictoryScreen() {
         {r.newMutations.length > 0 && <div className="unlock-banner">New mutation unlocked: {r.newMutations.map((m) => MUTATIONS[m].name).join(', ')}</div>}
         <div className="result-actions">
           {!final && next <= LEVELS.length && <Btn primary onClick={() => s.startLevel(next)}>Next room</Btn>}
+          {final && <Btn primary onClick={() => s.navigate('credits')}>Credits</Btn>}
           <Btn onClick={() => s.navigate('evolution')}>Mutations & Skills</Btn>
           <Btn onClick={() => s.navigate('shop')}>Shop</Btn>
-          <Btn onClick={() => s.startLevel(r.level)}>Replay</Btn>
+          <Btn onClick={() => s.startLevel(r.level)}>{final ? 'Replay Living Room' : 'Replay'}</Btn>
           <Btn ghost onClick={() => s.setScreen('menu')}>Main menu</Btn>
         </div>
       </div>

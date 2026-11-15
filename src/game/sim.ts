@@ -64,10 +64,46 @@ export const door = {
 
 export const sim_prompt = { text: '', sub: '' };
 
-export type Box = { min: THREE.Vector3; max: THREE.Vector3 };
+export const reveal = { active: false, t: 0, length: 5.2 };
+
+export const STAIRS = { x: 5.4, width: 2.0, z0: 2.9, depth: 0.38, rise: 0.18, count: 20 };
+export const stairTop = () => STAIRS.count * STAIRS.rise;
+export const stairEndZ = () => STAIRS.z0 - STAIRS.count * STAIRS.depth;
+
+export type Box = { min: THREE.Vector3; max: THREE.Vector3; camOnly?: boolean };
 
 export const obstacles: Box[] = [];
 export const hideZones: Box[] = [];
+const extras: Box[] = [];
+
+export const makeBox = (x: number, y: number, z: number, w: number, h: number, d: number, camOnly = false): Box => ({
+  min: new THREE.Vector3(x - w / 2, y - h / 2, z - d / 2),
+  max: new THREE.Vector3(x + w / 2, y + h / 2, z + d / 2),
+  camOnly,
+});
+
+export function addExtraObstacle(box: Box) {
+  extras.push(box);
+  obstacles.push(box);
+  obstacleVersion.n += 1;
+}
+
+export function removeExtraObstacle(box: Box) {
+  const e = extras.indexOf(box);
+  if (e >= 0) extras.splice(e, 1);
+  const o = obstacles.indexOf(box);
+  if (o >= 0) obstacles.splice(o, 1);
+  obstacleVersion.n += 1;
+}
+
+export const stairs = { active: false };
+const CLIMB = 0.4;
+
+function stairSurface(p: THREE.Vector3) {
+  if (!stairs.active || Math.abs(p.x - STAIRS.x) > STAIRS.width / 2 + 0.02 || p.z > STAIRS.z0 + 0.02 || p.z < stairEndZ() - 0.8) return -1;
+  const idx = Math.floor((STAIRS.z0 - p.z) / STAIRS.depth) + 1;
+  return Math.min(STAIRS.count, Math.max(0, idx)) * STAIRS.rise;
+}
 
 export function setHideZones(list: [number, number, number, number, number, number][]) {
   hideZones.length = 0;
@@ -91,12 +127,8 @@ export const obstacleVersion = { n: 0 };
 export function setObstacles(list: [number, number, number, number, number, number][]) {
   obstacleVersion.n += 1;
   obstacles.length = 0;
-  for (const [x, y, z, w, h, d] of list) {
-    obstacles.push({
-      min: new THREE.Vector3(x - w / 2, y - h / 2, z - d / 2),
-      max: new THREE.Vector3(x + w / 2, y + h / 2, z + d / 2),
-    });
-  }
+  for (const [x, y, z, w, h, d] of list) obstacles.push(makeBox(x, y, z, w, h, d));
+  for (const e of extras) obstacles.push(e);
 }
 
 const RADIUS = 0.22;
@@ -109,8 +141,14 @@ export function resolveCollisions(p: THREE.Vector3, v: THREE.Vector3) {
   p.z = THREE.MathUtils.clamp(p.z, -ROOM.halfZ + 0.4, ROOM.halfZ - 0.4);
   if (p.x < -ROOM.halfX + 0.4 && door.has) p.z = THREE.MathUtils.clamp(p.z, door.z - door.half + 0.35, door.z + door.half - 0.35);
   if (p.y > ROOM.height - 0.3) { p.y = ROOM.height - 0.3; v.y = Math.min(0, v.y); }
+  const surf = stairSurface(p);
+  if (surf >= 0 && surf - p.y > CLIMB) {
+    const idx = Math.floor((STAIRS.z0 - p.z) / STAIRS.depth) + 1;
+    p.z = STAIRS.z0 - (idx - 1) * STAIRS.depth + RADIUS * 0.6;
+    v.z = Math.max(0, v.z);
+  }
   for (const b of obstacles) {
-    if (b.max.y - p.y <= STEP) continue;
+    if (b.camOnly || b.max.y - p.y <= STEP) continue;
     if (p.x > b.min.x - RADIUS && p.x < b.max.x + RADIUS && p.y > b.min.y - RADIUS && p.y < b.max.y + RADIUS && p.z > b.min.z - RADIUS && p.z < b.max.z + RADIUS) {
       const dx = Math.min(p.x - (b.min.x - RADIUS), b.max.x + RADIUS - p.x);
       const dy = Math.min(p.y - (b.min.y - RADIUS), b.max.y + RADIUS - p.y);
@@ -170,7 +208,10 @@ export function clipCamera(from: THREE.Vector3, to: THREE.Vector3, out: THREE.Ve
 
 export function floorHeight(p: THREE.Vector3) {
   let h = 0;
+  const surf = stairSurface(p);
+  if (surf >= 0 && surf <= p.y + CLIMB) h = surf;
   for (const b of obstacles) {
+    if (b.camOnly) continue;
     if (p.x > b.min.x - 0.05 && p.x < b.max.x + 0.05 && p.z > b.min.z - 0.05 && p.z < b.max.z + 0.05 && b.max.y <= p.y + 0.35) h = Math.max(h, b.max.y);
   }
   return h;

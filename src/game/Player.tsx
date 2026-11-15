@@ -7,7 +7,8 @@ import { LEVELS } from './levels';
 import { input, tutorial } from './input';
 import { prefs } from './prefs';
 import { activateAbility, attackMultiplier, resetAbilities, speedMultiplier, tickAbilities } from '../progression/Abilities';
-import { clipCamera, door as doorSim, floorHeight, inHideZone, resolveCollisions, ROOM, sim, sim_prompt } from './sim';
+import { clipCamera, door as doorSim, floorHeight, inHideZone, resolveCollisions, reveal, ROOM, sim, sim_prompt, STAIRS, stairEndZ, stairTop } from './sim';
+import { BANQUET_SPAWN } from './BanquetRoom';
 import { DIMS, HUMAN_SCALE } from './world';
 import { distanceToDoor, requestOpen, resetDoor } from './door';
 import { doorSfx, footstep, setWingBuzz, sound } from './sound';
@@ -29,6 +30,7 @@ const LUNGE = 0.3;
 const RECOVER = 0.32;
 const ATTACK_COST = 6;
 let doorHint = 0;
+const ascend = { state: 'idle' as 'idle' | 'fading' | 'done', t: 0 };
 
 const angleDiff = (a: number, b: number) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
 
@@ -65,7 +67,9 @@ export function Player({ level, runId }: { level: number; runId: number }) {
   const cosmetics = useGame((s) => s.cosmeticsEquipped);
 
   useEffect(() => {
-    sim.position.set(LEVELS[level - 1].theme === 'bathroom' ? -1.2 : 0, 0.3, 3.4);
+    ascend.state = 'idle';
+    const inBanquet = useGame.getState().banquet;
+    sim.position.set(inBanquet ? BANQUET_SPAWN.x : LEVELS[level - 1].theme === 'bathroom' ? -1.2 : 0, 0.3, inBanquet ? BANQUET_SPAWN.z : 3.4);
     sim.velocity.set(0, 0, 0);
     sim.yaw = 0;
     sim.camYaw = 0;
@@ -114,6 +118,15 @@ export function Player({ level, runId }: { level: number; runId: number }) {
     const p = sim.position;
     const v = sim.velocity;
     const spec = LEVELS[level - 1];
+    if (reveal.active) {
+      g.position.copy(p);
+      g.rotation.set(0, Math.PI, 0);
+      input.mouseX = 0; input.mouseY = 0;
+      input.forward = input.backward = input.left = input.right = false;
+      input.jump = input.fly = input.attack = input.hide = input.ability = false;
+      sim.yaw = 0;
+      return;
+    }
 
     const stats = store.stats;
     tickAbilities(dt);
@@ -299,7 +312,12 @@ export function Player({ level, runId }: { level: number; runId: number }) {
       resolveCollisions(p, v);
       const floor = floorHeight(p);
       sim.grounded = p.y <= floor + 0.05;
-      if (p.y < floor) { p.y = floor; v.y = Math.max(0, v.y); }
+      if (p.y < floor) {
+        const rise = floor - p.y;
+        p.y = rise > 0.45 ? floor : p.y + rise * Math.min(1, dt * 32);
+        if (floor - p.y < 0.01) p.y = floor;
+        v.y = Math.max(0, v.y);
+      }
       if (sim.flying && sim.grounded && input.down) sim.flying = false;
     }
     if (!sim.flying && sim.stuckTo < 0 && !wantsSprint) store.regenStamina((sim.grounded ? 18 : 6) * stats.staminaRegeneration * dt);
@@ -313,6 +331,23 @@ export function Player({ level, runId }: { level: number; runId: number }) {
     sim_prompt.text = nearExit && doorSim.state === 'closed' ? (store.exitUnlocked ? 'PRESS E TO OPEN' : 'LOCKED') : '';
     sim_prompt.sub = !store.exitUnlocked ? `${spec.humans.length - store.cleared.length} left to terrify` : '';
     if (doorHint < 0) doorHint = 0;
+    if (spec.kind === 'boss' && store.bossDefeated && !store.banquet && ascend.state === 'idle') {
+      const onStairs = Math.abs(p.x - STAIRS.x) < STAIRS.width / 2 + 0.2 && p.z < STAIRS.z0 + 0.4 && p.z > stairEndZ() - 0.4;
+      sim_prompt.text = !onStairs && Math.hypot(p.x - STAIRS.x, p.z - STAIRS.z0) < 3.2 ? 'STAIRS' : '';
+      sim_prompt.sub = !onStairs && sim_prompt.text ? 'Climb to the top floor' : sim_prompt.sub;
+      if (onStairs && p.y > stairTop() - 0.6 && p.z < stairEndZ() + 1.0) {
+        ascend.state = 'fading';
+        ascend.t = now;
+      }
+      if (onStairs && sim.grounded && Math.hypot(v.x, v.z) > 0.4) footstep(false, 0.7);
+    }
+    if (ascend.state === 'fading') {
+      doorSim.fade = THREE.MathUtils.clamp((now - ascend.t) / 0.9, 0, 1);
+      if (doorSim.fade >= 1) {
+        ascend.state = 'done';
+        store.advance();
+      }
+    }
     if (nearExit && store.exitUnlocked && doorSim.state === 'open') doorSim.holdUntil = Math.max(doorSim.holdUntil, now + 2);
     if (spec.kind !== 'boss' && store.exitUnlocked && doorSim.state === 'open' && doorSim.exiting === 0 && p.x < -ROOM.halfX - 0.2) {
       doorSim.exiting = 1;
@@ -375,6 +410,7 @@ export function CameraRig({ resetKey }: { resetKey: string }) {
   useEffect(() => { state.current.init = true; }, [resetKey]);
 
   useFrame((_, delta) => {
+    if (reveal.active) return;
     const dt = Math.min(delta, 0.04);
     const s = state.current;
     const p = sim.position;

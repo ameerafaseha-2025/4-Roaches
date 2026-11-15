@@ -4,7 +4,7 @@ import { LEVELS, countRoles } from '../game/levels';
 import { fpsMeter } from '../game/fps';
 import { prefs } from '../game/prefs';
 import { sim } from '../game/sim';
-import { useGame } from '../game/store';
+import { FEAST_TARGET, useGame } from '../game/store';
 import { MUTATIONS } from '../progression/MutationConfig';
 import { Coins } from './kit';
 
@@ -73,7 +73,7 @@ export function Hud({ onPause }: { onPause: () => void }) {
   const spec = LEVELS[s.level - 1];
   const total = countRoles(spec.humans);
   const doneOf = (role: 'person' | 'janitor' | 'mak') => s.cleared.filter((c) => spec.humans[Number(c.split('-H')[1])]?.role === role).length;
-  const goal = `Terrify ${s.cleared.length} / ${spec.humans.length}`;
+  const goal = s.banquet ? `Feast ${s.feasted} / ${FEAST_TARGET}` : `Terrify ${s.cleared.length} / ${spec.humans.length}`;
   const makIndex = spec.humans.findIndex((h) => h.role === 'mak');
   const makFear = makIndex >= 0 ? s.fear[`L${s.level}-H${makIndex}`] ?? 0 : 0;
   const msg = s.message && Date.now() < s.messageUntil ? s.message : '';
@@ -83,29 +83,31 @@ export function Hud({ onPause }: { onPause: () => void }) {
     <div className="hud">
       {prefs.showFps && <span className="fps">{fpsMeter.fps} FPS</span>}
       <div className="hud-top">
-        <div className="hud-room"><small>Level {s.level} of {LEVELS.length}</small><strong>{spec.name}</strong></div>
+        <div className="hud-room"><small>{s.banquet ? 'The final reward' : `Level ${s.level} of ${LEVELS.length}`}</small><strong>{s.banquet ? 'The Top Floor' : spec.name}</strong></div>
         <div className="hud-right">
           <div className="hud-coins"><Coins value={s.coins} /><button className="pause" aria-label="Pause" onClick={onPause}>II</button></div>
           <div className="objective">
             <small>Objective</small>
             <strong>{goal}</strong>
-            <span className="counts">
-              {total.person > 0 && <i>People {doneOf('person')}/{total.person}</i>}
-              {total.janitor > 0 && <i>Janitors {doneOf('janitor')}/{total.janitor}</i>}
-              {total.mak > 0 && <i>Boss {doneOf('mak')}/{total.mak}</i>}
-            </span>
-            <em className={s.exitUnlocked ? 'on' : ''}>{s.exitUnlocked ? (spec.kind === 'boss' ? 'Room clear' : 'Door unlocked. Press E at the door') : spec.kind === 'boss' && !s.bossActive ? 'Clear her family. Mak is coming' : 'Door locked'}</em>
+            {!s.banquet && (
+              <span className="counts">
+                {total.person > 0 && <i>People {doneOf('person')}/{total.person}</i>}
+                {total.janitor > 0 && <i>Janitors {doneOf('janitor')}/{total.janitor}</i>}
+                {total.mak > 0 && <i>Boss {doneOf('mak')}/{total.mak}</i>}
+              </span>
+            )}
+            <em className={s.exitUnlocked || s.banquet ? 'on' : ''}>{s.banquet ? 'Eat everything on the table' : s.exitUnlocked ? (spec.kind === 'boss' ? 'Room clear. Take the stairs' : 'Door unlocked. Press E at the door') : spec.kind === 'boss' && !s.bossActive ? 'Clear her family. Mak is coming' : 'Door locked'}</em>
           </div>
         </div>
       </div>
-      {spec.kind === 'boss' && s.bossActive && !s.bossDefeated && (
+      {!s.banquet && spec.kind === 'boss' && s.bossActive && !s.bossDefeated && (
         <div className="boss-bar" role="progressbar" aria-label="Mak Lipas fear" aria-valuenow={Math.round(makFear)}>
           <span>MAK LIPAS</span>
           <div className="boss-track"><i style={{ width: `${makFear}%` }} /><b style={{ left: '50%' }} /></div>
           <small>{makFear > 50 ? 'ENRAGED' : 'Land on her face to scare her'}</small>
         </div>
       )}
-      {spec.humans.length > 0 && (
+      {!s.banquet && spec.humans.length > 0 && (
         <div className="fear-panel">
           {spec.humans.map((h, i) => {
             if (h.role === 'mak') return null;

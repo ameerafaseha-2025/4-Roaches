@@ -51,6 +51,18 @@ export default function App() {
       startLevel(n);
       return;
     }
+    if (import.meta.env.DEV && q.get('demo') === 'ending') {
+      useGame.setState({ unlocked: 5, reached: 5 });
+      startLevel(5);
+      const run = window.setInterval(() => {
+        const g = useGame.getState();
+        if (g.screen !== 'game' || g.level !== 5) return;
+        window.clearInterval(run);
+        for (let i = 0; i < 6; i++) g.addFear(`L5-H${i}`, 100);
+        window.setTimeout(() => useGame.getState().addFear('L5-H6', 100), 900);
+      }, 400);
+      return;
+    }
     if (import.meta.env.DEV && q.has('skipload')) setScreen('menu');
     const go = q.get('screen');
     if (import.meta.env.DEV && go) setScreen(go as never);

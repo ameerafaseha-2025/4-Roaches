@@ -22,4 +22,6 @@
 @keyframes shake { 25% { margin-left: -6px; } 75% { margin-left: 6px; } }
 @keyframes blink { 50% { opacity: .25; } 0%, 100% { opacity: 1; } }
 .cine-title::before { content: ''; position: absolute; inset: 0; z-index: -1; background: radial-gradient(ellipse at 50% 50%, rgba(6, 8, 18, calc(var(--k) * .78)) 0%, rgba(6, 8, 18, calc(var(--k) * .55)) 45%, rgba(6, 8, 18, calc(var(--k) * .2)) 100%); }
+.finale-title::before { background: radial-gradient(ellipse at 50% 50%, rgba(10, 6, 2, calc(var(--k) * .82)) 0%, rgba(10, 6, 2, calc(var(--k) * .6)) 55%, rgba(10, 6, 2, calc(var(--k) * .3)) 100%); }
+.finale-title h2 { margin: 0; font-size: clamp(30px, 6.6vw, 92px); line-height: 1.05; letter-spacing: .14em; font-weight: 900; text-align: center; opacity: var(--k); transform: scale(calc(1.18 - var(--k) * .18)); background: linear-gradient(180deg, #fff8e2 15%, #ffc66b 60%, #e8803a); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 4px 24px rgba(0, 0, 0, .8)); }
 .cine-press.on { text-shadow: 0 0 14px rgba(0, 0, 0, .9), 0 2px 6px #000; }

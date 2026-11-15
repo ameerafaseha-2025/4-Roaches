@@ -13,6 +13,8 @@ export type Screen =
   | 'loading' | 'menu' | 'intro' | 'story' | 'level-select' | 'collection' | 'evolution' | 'shop'
   | 'how-to-play' | 'settings' | 'credits' | 'game' | 'paused' | 'game-over' | 'level-complete' | 'finale' | 'ending';
 
+export const FEAST_TARGET = 7;
+
 export type Reward = { label: string; amount: number };
 export type RunResult = {
   level: number;
@@ -38,6 +40,8 @@ type GameStore = Persisted & {
   fear: Record<string, number>;
   cleared: string[];
   collected: string[];
+  banquet: boolean;
+  feasted: number;
   bossActive: boolean;
   bossDefeated: boolean;
   exitUnlocked: boolean;
@@ -86,6 +90,8 @@ const freshRun = () => ({
   fear: {} as Record<string, number>,
   cleared: [] as string[],
   collected: [] as string[],
+  banquet: false,
+  feasted: 0,
   bossActive: false,
   bossDefeated: false,
   exitUnlocked: false,
@@ -222,24 +228,32 @@ export const useGame = create<GameStore>((set, get) => {
       const bossDown = human.role === 'mak';
       const done = cleared.length >= spec.humans.length;
       const wakeBoss = !bossDown && !s.bossActive && spec.kind === 'boss' && minionsDone >= minions;
-      const message = bossDown ? 'MAK LIPAS IS DEFEATED!' : wakeBoss ? 'MAK LIPAS ENTERS THE ROOM!' : done ? 'EVERYONE IS TERRIFIED. THE DOOR IS OPEN.' : human.role === 'janitor' ? 'JANITOR TERRIFIED! +150' : 'TARGET TERRIFIED! +150';
+      const message = bossDown ? 'MAK LIPAS DEFEATED! ROYAL ROACH UNLOCKED. TAKE THE STAIRS' : wakeBoss ? 'MAK LIPAS ENTERS THE ROOM!' : done ? 'EVERYONE IS TERRIFIED. THE DOOR IS OPEN.' : human.role === 'janitor' ? 'JANITOR TERRIFIED! +150' : 'TARGET TERRIFIED! +150';
       set({
         fear, cleared, score: s.score + (bossDown ? 1000 : 150), exitUnlocked: done, bossActive: s.bossActive || wakeBoss, bossDefeated: s.bossDefeated || bossDown,
+        ...(bossDown ? { owned: Array.from(new Set([...s.owned, ...earnedMutations(s.level)])) } : {}),
         message, messageUntil: Date.now() + 2600,
         ...(wakeBoss ? { warning: 'BOSS: MAK LIPAS', warningUntil: Date.now() + 3200 } : {}),
       });
       award(`terrify:${id}`, terrifyCoins(s.level, index), human.role === 'person' ? `Terrified ${human.name}` : `Defeated ${human.name}`);
       persist();
-      if (bossDown) {
-        const run = s.runId;
-        window.setTimeout(() => { const g = get(); if (g.runId === run && g.screen === 'game') g.advance(); }, 2400);
-      }
     },
 
     collect: (id, energy) => {
       const s = get();
       if (s.collected.includes(id)) return;
       const collected = [...s.collected, id];
+      if (s.banquet) {
+        const feasted = s.feasted + 1;
+        const got = award(`food:${id}`, 15, 'Banquet feast');
+        const done = feasted >= FEAST_TARGET;
+        set({ collected, feasted, energy: 100, stamina: s.maxStamina, message: done ? 'THE WHOLE FEAST IS YOURS!' : `DELICIOUS! ${feasted}/${FEAST_TARGET}${got ? `  +${got}` : ''}`, messageUntil: Date.now() + 2200 });
+        if (done) {
+          const run = s.runId;
+          window.setTimeout(() => { const g = get(); if (g.runId === run && g.banquet && g.screen === 'game') set({ screen: 'finale', inGame: false }); }, 2200);
+        }
+        return;
+      }
       const coins = award(`food:${id}`, foodCoins(s.level), 'Food scraps');
       const gain = Math.round(energy * s.stats.foodEnergy);
       set({ collected, energy: Math.min(100, s.energy + gain), stamina: Math.min(s.maxStamina, s.stamina + 20), message: `YUM! +${gain} ENERGY${coins ? `  +${coins} COINS` : ''}`, messageUntil: Date.now() + 2000 });
@@ -291,8 +305,11 @@ export const useGame = create<GameStore>((set, get) => {
       set({
         owned, unlocked, reached: unlocked, score, finished,
         result: { level, rewards: after.rewards, coins, time, newMutations, firstClear },
-        screen: level === LEVELS.length ? 'finale' : 'level-complete', message: '',
-        inGame: level === LEVELS.length ? false : true,
+        screen: level === LEVELS.length ? 'game' : 'level-complete', message: '',
+        inGame: true,
+        ...(level === LEVELS.length
+          ? { banquet: true, feasted: 0, collected: [], exitUnlocked: false, runId: after.runId + 1, health: after.maxHealth, stamina: after.maxStamina, energy: 100, runStart: Date.now() }
+          : {}),
       });
       persist();
     },
