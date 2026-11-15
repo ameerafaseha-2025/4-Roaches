@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
+import { assetUrl } from './assetUrl';
 
-const base = '/assets/textures';
+const base = assetUrl('assets/textures');
 
 export function usePbr(id: string, repeatX: number, repeatY: number) {
   const [map, normalMap, arm] = useTexture([`${base}/${id}/Diffuse.jpg`, `${base}/${id}/nor_gl.jpg`, `${base}/${id}/arm.jpg`]);

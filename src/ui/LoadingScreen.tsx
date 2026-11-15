@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useGLTF, useTexture } from '@react-three/drei';
+import { assetUrl } from '../game/assetUrl';
 import { sound } from '../game/sound';
 
 const TIPS = [
@@ -15,9 +16,9 @@ const TIPS = [
 
 const TEXTURES = [
   'rounded_square_tiled_wall', 'long_white_tiles', 'scuffed_cement', 'concrete_wall_004', 'plastered_wall_04', 'clay_roof_tiles',
-].flatMap((id) => ['Diffuse', 'nor_gl', 'arm'].map((m) => `/assets/textures/${id}/${m}.jpg`));
+].flatMap((id) => ['Diffuse', 'nor_gl', 'arm'].map((m) => assetUrl(`assets/textures/${id}/${m}.jpg`)));
 
-const MODELS = ['rubber_duck_toy', 'potted_plant_01', 'wicker_basket_01', 'plunger', 'multi_cleaner_bottle', 'bleach_bottle'].map((n) => `/assets/models/${n}/${n}.gltf`);
+const MODELS = ['rubber_duck_toy', 'potted_plant_01', 'wicker_basket_01', 'plunger', 'multi_cleaner_bottle', 'bleach_bottle'].map((n) => assetUrl(`assets/models/${n}/${n}.gltf`));
 
 const FONTS = ['600 20px Cinzel', '900 20px Cinzel', '500 14px "DM Sans"', '700 14px "DM Sans"', '400 20px "Caveat Brush"'];
 

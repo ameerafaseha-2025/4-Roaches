@@ -1,4 +1,5 @@
 import { Clone, RoundedBox, useGLTF } from '@react-three/drei';
+import { assetUrl } from './assetUrl';
 import { Bathtub, Bottle, Cloth, ClothesPile, Hamper, Mirror, PaperHolder, Shelf, ShowerGlass, ShowerHead, StorageCabinet, Toilet, TowelRack, ToothbrushHolder, Vanity } from './fixtures';
 
 type Box = [number, number, number, number, number, number];
@@ -40,7 +41,7 @@ export const bathroomFood: [number, number, number][] = [
 ];
 
 export function Prop({ name, position, scale, rotation = [0, 0, 0] }: { name: string; position: [number, number, number]; scale: number; rotation?: [number, number, number] }) {
-  const gltf = useGLTF(`/assets/models/${name}/${name}.gltf`);
+  const gltf = useGLTF(assetUrl(`assets/models/${name}/${name}.gltf`));
   return <Clone object={gltf.scene} position={position} scale={scale} rotation={rotation} castShadow receiveShadow />;
 }
 
@@ -97,4 +98,4 @@ export function BathroomSet() {
   );
 }
 
-['rubber_duck_toy', 'potted_plant_01', 'wicker_basket_01', 'plunger', 'multi_cleaner_bottle', 'bleach_bottle'].forEach((n) => useGLTF.preload(`/assets/models/${n}/${n}.gltf`));
+['rubber_duck_toy', 'potted_plant_01', 'wicker_basket_01', 'plunger', 'multi_cleaner_bottle', 'bleach_bottle'].forEach((n) => useGLTF.preload(assetUrl(`assets/models/${n}/${n}.gltf`)));
