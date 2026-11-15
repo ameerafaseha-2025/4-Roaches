@@ -1,4 +1,4 @@
-# Roach Rampage
+# LIPAS: From Longkang to Luxury
 
 A 3D browser game built with Vite, React, TypeScript, Three.js, React Three Fiber and Zustand. All art and audio are generated in code.
 
