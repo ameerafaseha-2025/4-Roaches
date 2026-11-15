@@ -39,8 +39,30 @@ export const sim = {
   impact: { pos: new THREE.Vector3(), t: 99 },
   humanFaces: [] as THREE.Vector3[],
   humanFwd: [] as THREE.Vector3[],
-  projectiles: [] as { pos: THREE.Vector3; vel: THREE.Vector3; life: number }[],
+  notice: [] as number[],
+  npcs: [] as { x: number; z: number; on: boolean; state: string; exited: boolean }[],
+  exitQueue: [] as number[],
+  projectiles: [] as { pos: THREE.Vector3; vel: THREE.Vector3; life: number; dmg?: number }[],
 };
+
+export const door = {
+  has: false,
+  z: 0,
+  half: 1.5,
+  height: 5.6,
+  state: 'closed' as 'closed' | 'opening' | 'open' | 'closing',
+  t: 0,
+  p: 0,
+  creaked: false,
+  holdUntil: 0,
+  exiting: 0,
+  exitStart: 0,
+  stepAt: 0,
+  locked: true,
+  fade: 0,
+};
+
+export const sim_prompt = { text: '', sub: '' };
 
 export type Box = { min: THREE.Vector3; max: THREE.Vector3 };
 
@@ -64,7 +86,10 @@ export function setRoom(halfX: number, halfZ: number, height: number) {
   ROOM.height = height;
 }
 
+export const obstacleVersion = { n: 0 };
+
 export function setObstacles(list: [number, number, number, number, number, number][]) {
+  obstacleVersion.n += 1;
   obstacles.length = 0;
   for (const [x, y, z, w, h, d] of list) {
     obstacles.push({
@@ -78,8 +103,11 @@ const RADIUS = 0.22;
 const STEP = 0.2;
 
 export function resolveCollisions(p: THREE.Vector3, v: THREE.Vector3) {
-  p.x = THREE.MathUtils.clamp(p.x, -ROOM.halfX + 0.4, ROOM.halfX - 0.4);
+  const gate = door.has && (door.exiting > 0 || (door.p > 0.55 && !door.locked)) && p.y < door.height - 0.4 && Math.abs(p.z - door.z) < door.half - 0.3;
+  const minX = gate || (door.exiting > 0 && p.x < -ROOM.halfX) ? -ROOM.halfX - 3.2 : -ROOM.halfX + 0.4;
+  p.x = THREE.MathUtils.clamp(p.x, minX, ROOM.halfX - 0.4);
   p.z = THREE.MathUtils.clamp(p.z, -ROOM.halfZ + 0.4, ROOM.halfZ - 0.4);
+  if (p.x < -ROOM.halfX + 0.4 && door.has) p.z = THREE.MathUtils.clamp(p.z, door.z - door.half + 0.35, door.z + door.half - 0.35);
   if (p.y > ROOM.height - 0.3) { p.y = ROOM.height - 0.3; v.y = Math.min(0, v.y); }
   for (const b of obstacles) {
     if (b.max.y - p.y <= STEP) continue;

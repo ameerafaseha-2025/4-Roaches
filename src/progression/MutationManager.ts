@@ -28,7 +28,7 @@ export const secondWindHeal = (skills: Record<string, number>) => [0, 30, 45, 60
 
 export function canBuyMutation(def: MutationDef, save: Pick<SaveData, 'coins' | 'owned' | 'reached'>): { ok: boolean; reason?: string } {
   if (save.owned.includes(def.id)) return { ok: false, reason: 'Already owned' };
-  if (save.reached < def.requiresReached) return { ok: false, reason: 'Reach the Boss Domain first' };
+  if (save.reached < def.requiresReached) return { ok: false, reason: 'Reach the Living Room first' };
   if (save.coins < def.price) return { ok: false, reason: `Need ${def.price - save.coins} more Crumb Coins` };
   return { ok: true };
 }
@@ -39,8 +39,8 @@ export function earnedMutations(completedLevel: number): MutationId[] {
 
 export function unlockHint(def: MutationDef): string {
   if (def.earnedBy === null) return 'Available from the start';
-  const names = ['', 'The Bathroom', 'The Store Room', 'The Kitchen', 'The Bedroom', 'The Living Room', 'the Boss Domain'];
-  return `Free after clearing ${names[def.earnedBy]}`;
+  const names = ['', 'The Bathroom', 'The Store Room', 'The Kitchen', 'The Bedroom', 'Mak Lipas'];
+  return def.earnedBy === 5 ? 'Free after defeating Mak Lipas' : `Free after clearing ${names[def.earnedBy]}`;
 }
 
 export { skillById };

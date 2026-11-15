@@ -13,7 +13,25 @@
 .objective em { display: block; margin-top: 3px; font: 500 12px var(--f-body); font-style: normal; color: var(--ivory-faint); }
 .objective em.on { color: #8fd6a8; }
 
-.fear-panel { position: absolute; right: max(26px, env(safe-area-inset-right)); top: clamp(120px, 17vh, 160px); width: 210px; display: flex; flex-direction: column; gap: 8px; }
+.door-prompt { position: absolute; left: 50%; bottom: 24%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; padding: 10px 22px 10px 12px; background: rgba(14, 11, 9, .78); border: 1px solid var(--line-strong); animation: fadeIn .25s both; z-index: 3; pointer-events: none; }
+.dp-key { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--gold); color: var(--gold-hi); font: 800 15px var(--f-body); }
+.dp-text { font: 700 13px var(--f-body); letter-spacing: .24em; color: var(--ivory); }
+.door-prompt small { font: 600 10px var(--f-body); letter-spacing: .18em; text-transform: uppercase; color: var(--ivory-dim); }
+.door-prompt.locked { border-color: rgba(229, 70, 79, .6); }
+.door-prompt.locked .dp-key { border-color: #e5464f; color: #ffb0b5; }
+.door-fade { position: absolute; inset: 0; background: #070504; opacity: 0; pointer-events: none; z-index: 5; }
+.counts { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+.counts i { font: 600 11px var(--f-body); font-style: normal; letter-spacing: .08em; color: var(--ivory-dim); }
+.fear-row span.janitor { color: #7fd6d0; }
+.boss-bar { position: absolute; left: 50%; top: 82px; transform: translateX(-50%); width: min(560px, 46vw); text-align: center; animation: fadeIn .6s both; }
+.boss-bar span { font: 900 14px var(--f-display); letter-spacing: .4em; color: #ffd0d4; text-shadow: 0 2px 8px #000; }
+.boss-track { position: relative; height: 12px; margin: 6px 0 4px; background: rgba(20, 8, 10, .75); border: 1px solid #a3303d; }
+.boss-track i { display: block; height: 100%; background: linear-gradient(90deg, #7a1c28, #e5464f); transition: width .2s; }
+.boss-track b { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #ffd0d4; opacity: .7; }
+.boss-bar small { font: 700 10px var(--f-body); letter-spacing: .26em; color: var(--ivory-dim); text-transform: uppercase; }
+.fear-tag.janitor span { color: #7fd6d0; }
+.fear-tag.mak span { color: #ff9aa4; }
+.fear-panel { position: absolute; right: max(26px, env(safe-area-inset-right)); top: clamp(190px, 27vh, 250px); width: 210px; display: flex; flex-direction: column; gap: 8px; }
 .fear-panel > small { text-align: right; font: 700 9px var(--f-body); letter-spacing: .3em; color: var(--ivory-faint); }
 .fear-row { display: flex; flex-direction: column; gap: 4px; font: 700 10px var(--f-body); letter-spacing: .18em; text-transform: uppercase; text-align: right; }
 .fear-row.done { opacity: .4; }
@@ -51,6 +69,8 @@
 .tutorial small { font: 700 9px var(--f-body); letter-spacing: .28em; color: var(--gold); }
 .tutorial strong { font: 600 13px var(--f-body); letter-spacing: .04em; }
 .intro-chip { position: absolute; z-index: 3; top: clamp(130px, 21vh, 190px); left: 50%; transform: translateX(-50%); max-width: min(560px, 90vw); text-align: center; font: 400 clamp(20px, 2vw, 28px)/1.3 var(--f-accent); color: var(--gold-hi); text-shadow: 0 2px 14px rgba(0, 0, 0, .9); pointer-events: none; animation: chip 5s ease both; }
+.lock-prompt.free { animation: none; border-color: var(--line-strong); color: var(--ivory-dim); }
+.lock-prompt kbd { display: inline-block; margin: 0 4px; padding: 1px 7px; border: 1px solid currentColor; font: 800 11px var(--f-body); }
 .lock-prompt { position: absolute; z-index: 4; left: 50%; bottom: 17%; transform: translateX(-50%); padding: 11px 26px; border: 1px solid var(--gold-hi); background: rgba(17, 14, 12, .82); color: var(--gold-hi); font: 700 12px var(--f-body); letter-spacing: .26em; animation: blink 1.6s ease-in-out infinite; }
 .aim-reticle { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px; border: 1px solid rgba(241, 213, 143, .85); transform: rotate(45deg); pointer-events: none; }
 .aim-reticle i { position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px; background: var(--gold-hi); }

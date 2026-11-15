@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { FEAST_TARGET, LEVELS } from './levels';
+import { LEVELS } from './levels';
 import { resetTutorial } from './input';
 import { sim } from './sim';
 import { cosmeticById } from '../progression/CosmeticsConfig';
@@ -11,7 +11,7 @@ import { nextSkillCost, skillById } from '../progression/SkillManager';
 
 export type Screen =
   | 'loading' | 'menu' | 'intro' | 'story' | 'level-select' | 'collection' | 'evolution' | 'shop'
-  | 'how-to-play' | 'settings' | 'credits' | 'game' | 'paused' | 'game-over' | 'level-complete' | 'ending';
+  | 'how-to-play' | 'settings' | 'credits' | 'game' | 'paused' | 'game-over' | 'level-complete' | 'finale' | 'ending';
 
 export type Reward = { label: string; amount: number };
 export type RunResult = {
@@ -23,7 +23,7 @@ export type RunResult = {
   firstClear: boolean;
 };
 
-type Persisted = Pick<SaveData, 'coins' | 'lifetimeCoins' | 'owned' | 'equipped' | 'skills' | 'cosmeticsOwned' | 'cosmeticsEquipped' | 'unlocked' | 'reached' | 'score' | 'claimed'>;
+type Persisted = Pick<SaveData, 'coins' | 'lifetimeCoins' | 'owned' | 'equipped' | 'skills' | 'cosmeticsOwned' | 'cosmeticsEquipped' | 'unlocked' | 'reached' | 'score' | 'claimed' | 'finished'>;
 
 type GameStore = Persisted & {
   screen: Screen;
@@ -38,7 +38,8 @@ type GameStore = Persisted & {
   fear: Record<string, number>;
   cleared: string[];
   collected: string[];
-  feasted: number;
+  bossActive: boolean;
+  bossDefeated: boolean;
   exitUnlocked: boolean;
   runClaims: string[];
   rewards: Reward[];
@@ -85,28 +86,26 @@ const freshRun = () => ({
   fear: {} as Record<string, number>,
   cleared: [] as string[],
   collected: [] as string[],
-  feasted: 0,
+  bossActive: false,
+  bossDefeated: false,
   exitUnlocked: false,
   runClaims: [] as string[],
   rewards: [] as Reward[],
   damageTaken: 0,
 });
 
-const GAME_FAMILY: ReadonlySet<Screen> = new Set<Screen>(['game', 'paused', 'game-over', 'level-complete', 'ending']);
+const GAME_FAMILY: ReadonlySet<Screen> = new Set<Screen>(['game', 'paused', 'game-over', 'level-complete']);
 const OVERLAY: ReadonlySet<Screen> = new Set<Screen>(['settings', 'how-to-play']);
 const place = (screen: Screen, inGame: boolean) => ({ screen, inGame: GAME_FAMILY.has(screen) ? true : OVERLAY.has(screen) ? inGame : false });
 
-const foodCoins = (level: number) => (LEVELS[level - 1].kind === 'feast' ? 10 : 3 + Math.floor(level / 2));
+const foodCoins = (level: number) => 3 + Math.floor(level / 2);
 const terrifyCoins = (level: number, index: number) => {
   const h = LEVELS[level - 1].humans[index];
-  if (h?.weapon === 'spray') return 90;
-  if (h?.weapon === 'slipper') return 70;
+  if (h?.role === 'mak') return 250;
+  if (h?.role === 'janitor') return 90;
   return 12 + 4 * level;
 };
-const clearCoins = (level: number) => {
-  const kind = LEVELS[level - 1].kind;
-  return kind === 'boss' ? 250 : kind === 'feast' ? 350 : 40 + 25 * level;
-};
+const clearCoins = (level: number) => (LEVELS[level - 1].kind === 'boss' ? 350 : 40 + 25 * level);
 const parTime = (level: number) => 75 + 25 * LEVELS[level - 1].humans.length;
 
 export const useGame = create<GameStore>((set, get) => {
@@ -115,7 +114,7 @@ export const useGame = create<GameStore>((set, get) => {
     writeSave({
       version: 1, coins: s.coins, lifetimeCoins: s.lifetimeCoins, owned: s.owned, equipped: s.equipped, skills: s.skills,
       cosmeticsOwned: s.cosmeticsOwned, cosmeticsEquipped: s.cosmeticsEquipped, unlocked: s.unlocked, reached: s.reached,
-      score: s.score, claimed: s.claimed, bestFear: {},
+      score: s.score, claimed: s.claimed, bestFear: {}, finished: s.finished,
     });
   };
 
@@ -208,32 +207,40 @@ export const useGame = create<GameStore>((set, get) => {
 
     addFear: (id, amount) => {
       const s = get();
-      if (s.cleared.includes(id)) return;
+      if (s.cleared.includes(id) || s.screen !== 'game') return;
+      const spec = LEVELS[s.level - 1];
+      const index = Number(id.split('-H')[1]);
+      const human = spec.humans[index];
+      if (!human || id !== `L${s.level}-H${index}`) return;
+      if (human.role === 'mak' && !s.bossActive) return;
       const value = Math.max(0, Math.min(100, (s.fear[id] ?? 0) + amount));
       const fear = { ...s.fear, [id]: value };
       if (value < 100) { set({ fear }); return; }
       const cleared = [...s.cleared, id];
-      const spec = LEVELS[s.level - 1];
-      const index = Number(id.split('-H')[1]);
+      const minions = spec.humans.filter((h) => h.role !== 'mak').length;
+      const minionsDone = cleared.filter((c) => spec.humans[Number(c.split('-H')[1])]?.role !== 'mak').length;
+      const bossDown = human.role === 'mak';
       const done = cleared.length >= spec.humans.length;
-      const score = s.score + 150;
-      set({ fear, cleared, score, exitUnlocked: done, message: done ? 'EVERYONE IS TERRIFIED. THE DOOR IS OPEN.' : 'TARGET TERRIFIED! +150', messageUntil: Date.now() + 2600 });
-      const human = spec.humans[index];
-      award(`terrify:${id}`, terrifyCoins(s.level, index), human?.weapon ? `Defeated ${human.name}` : `Terrified ${human?.name ?? 'human'}`);
+      const wakeBoss = !bossDown && !s.bossActive && spec.kind === 'boss' && minionsDone >= minions;
+      const message = bossDown ? 'MAK LIPAS IS DEFEATED!' : wakeBoss ? 'MAK LIPAS ENTERS THE ROOM!' : done ? 'EVERYONE IS TERRIFIED. THE DOOR IS OPEN.' : human.role === 'janitor' ? 'JANITOR TERRIFIED! +150' : 'TARGET TERRIFIED! +150';
+      set({
+        fear, cleared, score: s.score + (bossDown ? 1000 : 150), exitUnlocked: done, bossActive: s.bossActive || wakeBoss, bossDefeated: s.bossDefeated || bossDown,
+        message, messageUntil: Date.now() + 2600,
+        ...(wakeBoss ? { warning: 'BOSS: MAK LIPAS', warningUntil: Date.now() + 3200 } : {}),
+      });
+      award(`terrify:${id}`, terrifyCoins(s.level, index), human.role === 'person' ? `Terrified ${human.name}` : `Defeated ${human.name}`);
       persist();
+      if (bossDown) {
+        const run = s.runId;
+        window.setTimeout(() => { const g = get(); if (g.runId === run && g.screen === 'game') g.advance(); }, 2400);
+      }
     },
 
     collect: (id, energy) => {
       const s = get();
       if (s.collected.includes(id)) return;
       const collected = [...s.collected, id];
-      const spec = LEVELS[s.level - 1];
       const coins = award(`food:${id}`, foodCoins(s.level), 'Food scraps');
-      if (spec.kind === 'feast') {
-        const feasted = s.feasted + 1;
-        set({ collected, feasted, energy: 100, stamina: s.maxStamina, message: `DELICIOUS! ${feasted}/${FEAST_TARGET}${coins ? `  +${coins}` : ''}`, messageUntil: Date.now() + 2000, exitUnlocked: feasted >= FEAST_TARGET });
-        return;
-      }
       const gain = Math.round(energy * s.stats.foodEnergy);
       set({ collected, energy: Math.min(100, s.energy + gain), stamina: Math.min(s.maxStamina, s.stamina + 20), message: `YUM! +${gain} ENERGY${coins ? `  +${coins} COINS` : ''}`, messageUntil: Date.now() + 2000 });
     },
@@ -265,12 +272,11 @@ export const useGame = create<GameStore>((set, get) => {
       if (s.screen !== 'game') return;
       const level = s.level;
       const spec = LEVELS[level - 1];
+      if (!s.exitUnlocked || s.cleared.length < spec.humans.length) return;
       const time = (Date.now() - s.runStart) / 1000;
       award(`clear:L${level}`, clearCoins(level), `${spec.name} cleared`);
       if (s.damageTaken < 0.5) award(`ch:untouched:L${level}`, 40, 'Challenge: Untouched');
-      const totalFood = (spec.kind === 'feast' ? 0 : get().collected.length);
-      void totalFood;
-      if (spec.kind !== 'feast' && get().collected.length >= (spec.theme === 'bathroom' ? 6 : spec.food.length)) award(`ch:gourmet:L${level}`, 30, 'Challenge: Gourmet');
+      if (get().collected.length >= (spec.theme === 'bathroom' ? 6 : spec.food.length)) award(`ch:gourmet:L${level}`, 30, 'Challenge: Gourmet');
       if (spec.kind === 'room' && time < parTime(level)) award(`ch:swift:L${level}`, 35, 'Challenge: Swift');
 
       const after = get();
@@ -279,12 +285,14 @@ export const useGame = create<GameStore>((set, get) => {
       const owned = [...after.owned, ...newMutations];
       const firstClear = level >= after.unlocked;
       const unlocked = Math.max(after.unlocked, Math.min(LEVELS.length, level + 1));
+      const finished = after.finished || level === LEVELS.length;
       const score = after.score + 250;
       const coins = after.rewards.reduce((a, r) => a + r.amount, 0);
       set({
-        owned, unlocked, reached: unlocked, score,
+        owned, unlocked, reached: unlocked, score, finished,
         result: { level, rewards: after.rewards, coins, time, newMutations, firstClear },
-        screen: level === LEVELS.length ? 'ending' : 'level-complete', message: '',
+        screen: level === LEVELS.length ? 'finale' : 'level-complete', message: '',
+        inGame: level === LEVELS.length ? false : true,
       });
       persist();
     },

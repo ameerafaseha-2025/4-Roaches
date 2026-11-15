@@ -13,8 +13,6 @@ export const DIMS: Record<Theme, Dims> = {
   kitchen: { ...base, door },
   bedroom: { ...base, door },
   living: { ...base, door },
-  boss: { ...base, door },
-  feast: { ...base, door: null },
 };
 
 export const HUMAN_SCALE = 2.6;

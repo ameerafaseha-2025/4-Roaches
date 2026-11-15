@@ -3,6 +3,7 @@ import type { MutationId } from './MutationConfig';
 
 export const SAVE_KEY = 'lipas-save';
 export const SAVE_VERSION = 1;
+export const MAX_LEVEL = 5;
 
 export type SaveData = {
   version: number;
@@ -18,6 +19,7 @@ export type SaveData = {
   score: number;
   claimed: string[];
   bestFear: Record<string, number>;
+  finished: boolean;
 };
 
 const MUTATION_IDS: MutationId[] = ['basic', 'tank', 'thunder', 'aero', 'shadow', 'royal'];
@@ -38,6 +40,7 @@ export function defaultSave(): SaveData {
     score: 0,
     claimed: [],
     bestFear: {},
+    finished: false,
   };
 }
 
@@ -70,7 +73,7 @@ export function sanitize(raw: unknown): SaveData {
   if (r.bestFear && typeof r.bestFear === 'object') {
     for (const [k, v] of Object.entries(r.bestFear as Record<string, unknown>)) bestFear[k] = num(v, 0, 0, 100);
   }
-  const unlocked = num(r.unlocked, 1, 1, 7);
+  const unlocked = num(r.unlocked, 1, 1, MAX_LEVEL);
   return {
     version: SAVE_VERSION,
     coins: num(r.coins, 0),
@@ -81,7 +84,8 @@ export function sanitize(raw: unknown): SaveData {
     cosmeticsOwned,
     cosmeticsEquipped,
     unlocked,
-    reached: Math.max(unlocked, num(r.reached, 1, 1, 7)),
+    reached: Math.max(unlocked, num(r.reached, 1, 1, MAX_LEVEL)),
+    finished: r.finished === true,
     score: num(r.score, 0),
     claimed: strings(r.claimed),
     bestFear,

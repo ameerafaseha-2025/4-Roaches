@@ -1,14 +1,13 @@
 import { useState } from 'react';
-import { LEVELS, type LevelSpec } from '../game/levels';
+import { LEVELS, countRoles, type LevelSpec } from '../game/levels';
 import { useGame } from '../game/store';
 import { Coins, ScreenFrame, useBackKey } from './kit';
 import { LevelArt } from './LevelArt';
 
-const ROOM_SHORT: Record<string, string> = { bathroom: 'Bathroom', store: 'Store Room', kitchen: 'Kitchen', bedroom: 'Bedroom', living: 'Living Room', boss: 'Boss Domain', feast: 'Luxury Floor' };
+const ROOM_SHORT: Record<string, string> = { bathroom: 'Bathroom', store: 'Store Room', kitchen: 'Kitchen', bedroom: 'Bedroom', living: 'Living Room' };
 const THREAT = (l: LevelSpec) => {
-  if (l.kind === 'feast') return 'None. Feast.';
-  if (l.kind === 'boss') return 'Mak (slipper) and the Janitor (spray)';
-  return l.humans.map((h) => h.name).join(', ');
+  const c = countRoles(l.humans);
+  return [`${c.person} people`, c.janitor ? `${c.janitor} janitor${c.janitor > 1 ? 's' : ''}` : '', c.mak ? 'Mak Lipas (boss)' : ''].filter(Boolean).join(', ');
 };
 
 export function LevelSelect() {
@@ -33,11 +32,11 @@ export function LevelSelect() {
                 {!open && (
                   <svg className="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="11" width="14" height="9" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
                 )}
-                <span className="tag">{l.kind === 'boss' ? 'Boss' : l.kind === 'feast' ? 'Goal' : l.difficulty}</span>
+                <span className="tag">{l.kind === 'boss' ? 'Boss' : l.difficulty}</span>
                 <h3>{ROOM_SHORT[l.theme]}</h3>
                 <dl>
-                  <dt>Humans</dt><dd>{l.humans.length || 'None'}</dd>
-                  <dt>Threat</dt><dd>{open ? (l.kind === 'boss' ? 'Slipper + spray' : l.humans.length ? l.difficulty : 'Calm') : 'Unknown'}</dd>
+                  <dt>Enemies</dt><dd>{l.humans.length}</dd>
+                  <dt>Threat</dt><dd>{open ? (l.kind === 'boss' ? 'Boss fight' : l.difficulty) : 'Unknown'}</dd>
                   <dt>Status</dt><dd>{!open ? 'Locked' : cleared ? 'Cleared' : 'Available'}</dd>
                 </dl>
                 <div className="lv-prog"><i style={{ width: `${progress}%` }} /></div>

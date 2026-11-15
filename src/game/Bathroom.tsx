@@ -35,7 +35,7 @@ export const bathroomFood: [number, number, number][] = [
   [-4.9, 1.2, 3.8],
 ];
 
-function Prop({ name, position, scale, rotation = [0, 0, 0] }: { name: string; position: [number, number, number]; scale: number; rotation?: [number, number, number] }) {
+export function Prop({ name, position, scale, rotation = [0, 0, 0] }: { name: string; position: [number, number, number]; scale: number; rotation?: [number, number, number] }) {
   const gltf = useGLTF(`/assets/models/${name}/${name}.gltf`);
   return <Clone object={gltf.scene} position={position} scale={scale} rotation={rotation} castShadow receiveShadow />;
 }

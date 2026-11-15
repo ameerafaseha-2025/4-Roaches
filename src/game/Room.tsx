@@ -5,10 +5,14 @@ import * as THREE from 'three';
 import { LEVELS } from './levels';
 import { Soft } from './look';
 import { ROOM, setHideZones, setObstacles, setRoom } from './sim';
-import { Suspense } from 'react';
+import { Component, Suspense, type ReactNode } from 'react';
 import { BathroomSet, bathroomHide, bathroomObstacles } from './Bathroom';
 import { Architecture, ExitDoor, Lighting, WallWindow, type ShellStyle } from './Shell';
 import { DIMS } from './world';
+import { StoreRoom } from './StoreRoom';
+import { KitchenRoom } from './KitchenRoom';
+import { BedroomRoom } from './BedroomRoom';
+import { LivingRoom } from './LivingRoom';
 
 type Item = { p: [number, number, number]; s: [number, number, number]; c: string; clear?: number; glow?: boolean };
 
@@ -55,25 +59,8 @@ function furniture(level: number): Item[] {
         item(0, 2.0, 2.2, 1.0, 0.45, '#a6805a', 0, 0.3),
         item(4.8, 1.8, 0.9, 0.9, 1.6, '#a7b59e'),
       ];
-    case 6:
-      return [
-        item(0, -0.2, 4.0, 2.0, 0.85, '#b88a57', 0, 0.4),
-        ...[-1.8, 1.8].flatMap((x) => [-1.7, 1.5].map((z) => item(x, z, 0.6, 0.6, 0.55, '#8a5f3a'))),
-        item(-4.8, -3.0, 1.0, 2.6, 1.4, '#9a7048'),
-        item(4.8, -3.0, 1.0, 2.6, 1.4, '#9a7048'),
-      ];
-    case 7:
-      return [
-        item(-4.6, 1.8, 1.0, 2.4, 1.0, '#ae7c4f'),
-        item(4.6, 1.8, 1.0, 2.4, 1.0, '#ae7c4f'),
-        item(0, 3.0, 2.6, 1.0, 0.5, '#c3a278', 0, 0.3),
-      ];
     default:
-      return [
-        item(0, -0.5, 6.4, 1.6, 1.0, '#f4efe3', 0, 0.7),
-        item(-5.0, -4.6, 1.2, 1.2, 1.6, '#e6c870', 0, 0.8),
-        item(5.0, -4.6, 1.2, 1.2, 1.6, '#e6c870', 0, 0.8),
-      ];
+      return [];
   }
 }
 
@@ -119,14 +106,8 @@ function LegacyRoom({ level, exitUnlocked }: { level: number; exitUnlocked: bool
 
       <mesh position={[0, -0.05, 0]} receiveShadow>
         <boxGeometry args={[ROOM.halfX * 2, 0.1, ROOM.halfZ * 2]} />
-        <Soft color={spec.floor} rough={level === 6 || level === 8 ? 0.28 : 0.6} clearcoat={level === 6 || level === 8 ? 0.5 : 0.1} sheen={0.2} />
+        <Soft color={spec.floor} rough={0.6} clearcoat={0.1} sheen={0.2} />
       </mesh>
-      {level === 8 && (
-        <mesh position={[0, 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-          <planeGeometry args={[4, 11]} />
-          <Soft color="#a43a46" rough={0.9} sheen={1} />
-        </mesh>
-      )}
       <mesh position={[0, ROOM.height / 2, -ROOM.halfZ]} receiveShadow>
         <boxGeometry args={[ROOM.halfX * 2, ROOM.height, 0.2]} />
         <Soft color={spec.wall} rough={0.85} sheen={0.3} />
@@ -163,7 +144,7 @@ function LegacyRoom({ level, exitUnlocked }: { level: number; exitUnlocked: bool
 
       <ContactShadows position={[0, 0.011, 0]} opacity={dark ? 0.4 : 0.32} scale={14} blur={2.8} far={4} resolution={512} />
       <Sparkles count={26} scale={[11, 3, 11]} position={[0, 1.5, 0]} size={2.4} speed={0.15} color={spec.accent} opacity={0.35} />
-      {spec.kind !== 'feast' && <Door active={exitUnlocked} color={spec.accent} />}
+      <Door active={exitUnlocked} color={spec.accent} />
     </group>
   );
 }
@@ -188,6 +169,13 @@ function Door({ active, color }: { active: boolean; color: string }) {
   );
 }
 
+class PropGuard extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(error: unknown) { console.warn('Bathroom props failed to load; continuing without them.', error); }
+  render() { return this.state.failed ? null : this.props.children; }
+}
+
 const BATH_STYLE: ShellStyle = {
   floorTex: 'rounded_square_tiled_wall', floorSpan: 4.2, floorTint: '#e4f3f1',
   wallTex: 'long_white_tiles', wallSpan: 7.5, wallTint: '#ffffff',
@@ -208,14 +196,20 @@ function BathroomRoom({ exitUnlocked }: { exitUnlocked: boolean }) {
       <Architecture dims={dims} style={BATH_STYLE} />
       <WallWindow position={[2.9, 5.6, 5.46]} rotation={[0, Math.PI, 0]} w={2.6} h={1.7} />
       <ExitDoor dims={dims} active={exitUnlocked} color={BATH_STYLE.accent} />
-      <Suspense fallback={null}>
-        <BathroomSet />
-      </Suspense>
+      <PropGuard>
+        <Suspense fallback={null}>
+          <BathroomSet />
+        </Suspense>
+      </PropGuard>
     </group>
   );
 }
 
 export function Room({ level, exitUnlocked }: { level: number; exitUnlocked: boolean }) {
   if (LEVELS[level - 1].theme === 'bathroom') return <BathroomRoom exitUnlocked={exitUnlocked} />;
+  if (LEVELS[level - 1].theme === 'store') return <PropGuard><StoreRoom exitUnlocked={exitUnlocked} /></PropGuard>;
+  if (LEVELS[level - 1].theme === 'kitchen') return <PropGuard><KitchenRoom exitUnlocked={exitUnlocked} /></PropGuard>;
+  if (LEVELS[level - 1].theme === 'bedroom') return <PropGuard><BedroomRoom exitUnlocked={exitUnlocked} /></PropGuard>;
+  if (LEVELS[level - 1].theme === 'living') return <PropGuard><LivingRoom exitUnlocked={exitUnlocked} /></PropGuard>;
   return <LegacyRoom level={level} exitUnlocked={exitUnlocked} />;
 }

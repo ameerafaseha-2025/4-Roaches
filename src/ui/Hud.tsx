@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { tutorial } from '../game/input';
-import { FEAST_TARGET, LEVELS } from '../game/levels';
+import { LEVELS, countRoles } from '../game/levels';
 import { fpsMeter } from '../game/fps';
 import { prefs } from '../game/prefs';
 import { sim } from '../game/sim';
@@ -71,7 +71,11 @@ export function Hud({ onPause }: { onPause: () => void }) {
   const [, tick] = useState(0);
   useEffect(() => { const id = window.setInterval(() => tick((n) => n + 1), 100); return () => window.clearInterval(id); }, []);
   const spec = LEVELS[s.level - 1];
-  const goal = spec.kind === 'feast' ? `Feast ${s.feasted} / ${FEAST_TARGET}` : `Terrify ${s.cleared.length} / ${spec.humans.length}`;
+  const total = countRoles(spec.humans);
+  const doneOf = (role: 'person' | 'janitor' | 'mak') => s.cleared.filter((c) => spec.humans[Number(c.split('-H')[1])]?.role === role).length;
+  const goal = `Terrify ${s.cleared.length} / ${spec.humans.length}`;
+  const makIndex = spec.humans.findIndex((h) => h.role === 'mak');
+  const makFear = makIndex >= 0 ? s.fear[`L${s.level}-H${makIndex}`] ?? 0 : 0;
   const msg = s.message && Date.now() < s.messageUntil ? s.message : '';
   const warning = s.warning && Date.now() < s.warningUntil ? s.warning : '';
   const playing = s.screen === 'game';
@@ -85,19 +89,32 @@ export function Hud({ onPause }: { onPause: () => void }) {
           <div className="objective">
             <small>Objective</small>
             <strong>{goal}</strong>
-            {spec.kind !== 'feast' && <em className={s.exitUnlocked ? 'on' : ''}>{s.exitUnlocked ? 'Door open. Fly to it.' : 'Door locked'}</em>}
+            <span className="counts">
+              {total.person > 0 && <i>People {doneOf('person')}/{total.person}</i>}
+              {total.janitor > 0 && <i>Janitors {doneOf('janitor')}/{total.janitor}</i>}
+              {total.mak > 0 && <i>Boss {doneOf('mak')}/{total.mak}</i>}
+            </span>
+            <em className={s.exitUnlocked ? 'on' : ''}>{s.exitUnlocked ? (spec.kind === 'boss' ? 'Room clear' : 'Door unlocked. Press E at the door') : spec.kind === 'boss' && !s.bossActive ? 'Clear her family. Mak is coming' : 'Door locked'}</em>
           </div>
         </div>
       </div>
+      {spec.kind === 'boss' && s.bossActive && !s.bossDefeated && (
+        <div className="boss-bar" role="progressbar" aria-label="Mak Lipas fear" aria-valuenow={Math.round(makFear)}>
+          <span>MAK LIPAS</span>
+          <div className="boss-track"><i style={{ width: `${makFear}%` }} /><b style={{ left: '50%' }} /></div>
+          <small>{makFear > 50 ? 'ENRAGED' : 'Land on her face to scare her'}</small>
+        </div>
+      )}
       {spec.humans.length > 0 && (
         <div className="fear-panel">
           {spec.humans.map((h, i) => {
+            if (h.role === 'mak') return null;
             const id = `L${s.level}-H${i}`;
             const done = s.cleared.includes(id);
-            const alert = !done && !sim.hidden && (sim.stun[i] ?? 0) <= 0 && sim.humanFaces[i] && sim.humanFaces[i].distanceTo(sim.position) < 7 * (1 - s.stats.detectionResistance);
+            const alert = !done && !sim.hidden && (sim.stun[i] ?? 0) <= 0 && (sim.notice[i] ?? 0) >= 1;
             return (
               <div className={`fear-row ${done ? 'done' : ''}`} key={id}>
-                <span>{h.name}<i className={`aware ${alert ? 'on' : sim.hidden ? 'hid' : ''}`} title={alert ? 'Has noticed you' : sim.hidden ? 'You are hidden' : 'Has not noticed you'} /></span>
+                <span className={h.role}>{h.name}<i className={`aware ${alert ? 'on' : sim.hidden ? 'hid' : ''}`} title={alert ? 'Has noticed you' : sim.hidden ? 'You are hidden' : 'Has not noticed you'} /></span>
                 <div className="fear-bar"><i style={{ width: `${s.fear[id] ?? 0}%` }} /></div>
               </div>
             );

@@ -2,7 +2,72 @@ import { forwardRef, useMemo, useRef, type MutableRefObject } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
-export type Motion = { speed: number; alert: number };
+import type { Pose } from './activities';
+
+export type Motion = {
+  speed: number;
+  alert: number;
+  pose: Pose | null;
+  poseW: number;
+  sit: number;
+  stage: number;
+  run: number;
+  look: number;
+  flinch: number;
+};
+
+export const newMotion = (): Motion => ({ speed: 0, alert: 0, pose: null, poseW: 0, sit: 0, stage: 0, run: 0, look: 0, flinch: 0 });
+
+type PropRegistry = MutableRefObject<Record<string, THREE.Group | null>>;
+
+function HeldProps({ registry }: { registry: PropRegistry }) {
+  const reg = (name: string) => (g: THREE.Group | null) => { registry.current[name] = g; };
+  const wood = '#b98a5a';
+  return (
+    <group>
+      <group ref={reg('phone')} visible={false} position={[0, -0.04, 0.035]}>
+        <mesh castShadow><boxGeometry args={[0.075, 0.14, 0.012]} /><meshStandardMaterial color="#1c1e22" roughness={0.3} /></mesh>
+        <mesh position={[0, 0, 0.007]}><planeGeometry args={[0.065, 0.12]} /><meshBasicMaterial color="#9fd0ff" toneMapped={false} /></mesh>
+      </group>
+      <group ref={reg('toothbrush')} visible={false} position={[0, -0.05, 0.02]}>
+        <mesh position={[0, 0.02, 0]}><capsuleGeometry args={[0.011, 0.14, 4, 8]} /><meshStandardMaterial color="#5ad0c8" roughness={0.4} /></mesh>
+        <mesh position={[0, 0.115, 0]}><boxGeometry args={[0.025, 0.04, 0.018]} /><meshStandardMaterial color="#ffffff" /></mesh>
+      </group>
+      <group ref={reg('comb')} visible={false} position={[0, -0.05, 0.02]}>
+        <mesh><boxGeometry args={[0.1, 0.03, 0.012]} /><meshStandardMaterial color="#d96a5a" roughness={0.5} /></mesh>
+      </group>
+      <group ref={reg('knife')} visible={false} position={[0, -0.04, 0.03]}>
+        <mesh position={[0, 0, 0]}><boxGeometry args={[0.03, 0.09, 0.025]} /><meshStandardMaterial color="#3a2a22" /></mesh>
+        <mesh position={[0, -0.12, 0]}><boxGeometry args={[0.012, 0.15, 0.06]} /><meshStandardMaterial color="#dfe3e6" metalness={0.9} roughness={0.2} /></mesh>
+      </group>
+      <group ref={reg('ladle')} visible={false} position={[0, -0.02, 0.02]}>
+        <mesh position={[0, -0.1, 0]}><cylinderGeometry args={[0.01, 0.01, 0.38, 8]} /><meshStandardMaterial color="#c9ccd0" metalness={0.8} roughness={0.3} /></mesh>
+        <mesh position={[0, -0.3, 0]}><sphereGeometry args={[0.045, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2]} /><meshStandardMaterial color="#c9ccd0" metalness={0.8} roughness={0.3} side={THREE.DoubleSide} /></mesh>
+      </group>
+      <group ref={reg('broom')} visible={false} position={[0, 0, 0]} rotation={[1.3, 0, 0]}>
+        <mesh position={[0, -0.4, 0]}><cylinderGeometry args={[0.014, 0.014, 1.7, 8]} /><meshStandardMaterial color={wood} /></mesh>
+        <mesh position={[0, -1.22, 0]}><boxGeometry args={[0.42, 0.1, 0.1]} /><meshStandardMaterial color="#d8b94a" roughness={0.9} /></mesh>
+      </group>
+      <group ref={reg('book')} visible={false} position={[0, -0.05, 0.04]}>
+        <mesh castShadow><boxGeometry args={[0.2, 0.15, 0.025]} /><meshStandardMaterial color="#7a5a9a" roughness={0.7} /></mesh>
+        <mesh position={[0, 0, 0.014]}><planeGeometry args={[0.18, 0.13]} /><meshStandardMaterial color="#f4efe2" /></mesh>
+      </group>
+      <group ref={reg('cloth')} visible={false} position={[0, -0.04, 0.03]}>
+        <mesh><boxGeometry args={[0.2, 0.16, 0.03]} /><meshStandardMaterial color="#e9e4d8" roughness={0.95} /></mesh>
+      </group>
+      <group ref={reg('clothes')} visible={false} position={[-0.1, -0.06, 0.07]}>
+        <mesh castShadow><boxGeometry args={[0.28, 0.2, 0.07]} /><meshStandardMaterial color="#5aa6c9" roughness={0.95} /></mesh>
+        <mesh position={[0, 0, 0.04]}><boxGeometry args={[0.26, 0.18, 0.03]} /><meshStandardMaterial color="#e07a8a" roughness={0.95} /></mesh>
+      </group>
+      <group ref={reg('box')} visible={false} position={[-0.12, -0.1, 0.12]}>
+        <mesh castShadow><boxGeometry args={[0.3, 0.22, 0.22]} /><meshStandardMaterial color="#b98d52" roughness={0.9} /></mesh>
+      </group>
+      <group ref={reg('plate')} visible={false} position={[-0.05, -0.05, 0.05]}>
+        <mesh rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.1, 0.1, 0.012, 20]} /><meshPhysicalMaterial color="#fafafa" roughness={0.2} clearcoat={1} /></mesh>
+      </group>
+    </group>
+  );
+}
 
 type HumanProps = {
   skin: string;
@@ -73,6 +138,8 @@ export const HumanModel = forwardRef<THREE.Group, HumanProps>(function HumanMode
   const kneeR = useRef<THREE.Group>(null);
   const hips = useRef<THREE.Group>(null);
   const head = useRef<THREE.Group>(null);
+  const upper = useRef<THREE.Group>(null);
+  const propRefs = useRef<Record<string, THREE.Group | null>>({});
   const lid = useRef<THREE.Group>(null);
   const torso = useMemo(() => torsoGeometry(0.2, 0.17, 0.2, 0.235), []);
   const pale = useMemo(() => new THREE.Color(skin).lerp(new THREE.Color('#f6f1ea'), Math.min(0.6, fear / 170)).getStyle(), [skin, fear]);
@@ -82,31 +149,72 @@ export const HumanModel = forwardRef<THREE.Group, HumanProps>(function HumanMode
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
-    const sp = Math.min(1, motion.current.speed / 1.4);
-    const w = t * (4 + sp * 3);
-    const swing = Math.sin(w) * 0.55 * sp;
+    const m = motion.current;
+    const pose = m.pose;
+    const pw = pose ? m.poseW : 0;
+    const sit = m.sit;
+    const run = m.run;
+    const sp = Math.min(1, m.speed / 1.4);
+    const w = t * (4 + sp * 3 + run * 5);
+    const swing = Math.sin(w) * (0.55 + run * 0.5) * sp;
     if (legL.current && legR.current && kneeL.current && kneeR.current) {
-      legL.current.rotation.x = swing;
-      legR.current.rotation.x = -swing;
-      kneeL.current.rotation.x = Math.max(0, -Math.sin(w)) * 0.7 * sp;
-      kneeR.current.rotation.x = Math.max(0, Math.sin(w)) * 0.7 * sp;
+      legL.current.rotation.x = swing * (1 - sit) - sit * 1.5;
+      legR.current.rotation.x = -swing * (1 - sit) - sit * 1.5;
+      kneeL.current.rotation.x = Math.max(0, -Math.sin(w)) * (0.7 + run * 0.7) * sp * (1 - sit) + sit * 1.5;
+      kneeR.current.rotation.x = Math.max(0, Math.sin(w)) * (0.7 + run * 0.7) * sp * (1 - sit) + sit * 1.5;
     }
-    const raise = stuck || scared ? 1 : 0;
+    const stageRaise = stuck ? 1 : m.stage >= 3 ? 1 : m.stage === 2 ? 0.55 : scared ? 0.6 : 0;
+    const raise = stageRaise * (1 - pw * (m.stage >= 2 ? 0 : 1));
+    const a = pose?.anim ?? 'none';
+    const o = { lx: 0, rx: 0, lz: 0, rz: 0, fl: 0, fr: 0, lean: 0, hy: 0 };
+    if (pw > 0.01 && m.stage < 2) {
+      if (a === 'scrub') { o.lx = Math.sin(t * 9) * 0.14; o.rx = Math.sin(t * 9 + 1.4) * 0.14; o.fl = Math.sin(t * 9) * 0.1; o.fr = Math.sin(t * 9 + 1) * 0.1; }
+      else if (a === 'chop') { o.fr = Math.max(0, Math.sin(t * 7)) * 0.6; o.rx = Math.sin(t * 7) * 0.08; o.lx = Math.sin(t * 7) * 0.03; }
+      else if (a === 'stir') { o.rz = Math.cos(t * 3.2) * 0.14; o.rx = Math.sin(t * 3.2) * 0.12; o.fr = Math.sin(t * 3.2) * 0.1; }
+      else if (a === 'sweep') { o.lx = Math.sin(t * 3.4) * 0.2; o.rx = Math.sin(t * 3.4) * 0.2; o.lean = Math.sin(t * 3.4) * 0.05; }
+      else if (a === 'brush') { o.fr = Math.sin(t * 13) * 0.14; o.rx = Math.sin(t * 13) * 0.04; o.hy = Math.sin(t * 13) * 0.04; }
+      else if (a === 'type') { o.fl = Math.sin(t * 11) * 0.05; o.fr = Math.sin(t * 9 + 1) * 0.05; }
+      else if (a === 'rummage') { o.lx = Math.sin(t * 4) * 0.22; o.rx = Math.sin(t * 4 + 2) * 0.22; o.lean = Math.sin(t * 2.2) * 0.07; }
+      else if (a === 'fold') { o.lx = Math.sin(t * 2.6) * 0.14; o.rx = Math.sin(t * 2.6 + 0.5) * 0.14; o.fl = Math.sin(t * 2.6) * 0.15; o.fr = Math.sin(t * 2.6 + 0.5) * 0.15; }
+      else if (a === 'read') { o.hy = Math.sin(t * 0.7) * 0.05; }
+    }
     if (armL.current && armR.current && foreL.current && foreR.current) {
       const idle = Math.sin(t * 1.4) * 0.03;
-      armL.current.rotation.x = -swing * 0.7 + idle - raise * 1.2;
-      armR.current.rotation.x = swing * 0.7 - idle - raise * (weapon ? 0.5 : 1.2);
-      armL.current.rotation.z = 0.12 + raise * 0.5;
-      armR.current.rotation.z = -0.12 - raise * 0.5;
-      foreL.current.rotation.x = -0.25 - raise * 0.9;
-      foreR.current.rotation.x = -0.25 - raise * (weapon ? 1.6 : 0.9);
+      const bLx = -swing * 0.7 + idle - raise * 1.2;
+      const bRx = swing * 0.7 - idle - raise * (weapon ? 0.5 : 1.2);
+      const bLz = 0.12 + raise * 0.5;
+      const bRz = -0.12 - raise * 0.5;
+      const bFl = -0.25 - raise * 0.9;
+      const bFr = -0.25 - raise * (weapon ? 1.6 : 0.9);
+      const pl = pose?.armL ?? [0, 0.12, 0];
+      const pr = pose?.armR ?? [0, -0.12, 0];
+      const fl = pose?.foreL ?? -0.25;
+      const fr = pose?.foreR ?? -0.25;
+      armL.current.rotation.x = THREE.MathUtils.lerp(bLx, pl[0] + o.lx, pw);
+      armR.current.rotation.x = THREE.MathUtils.lerp(bRx, pr[0] + o.rx, pw);
+      armL.current.rotation.z = THREE.MathUtils.lerp(bLz, pl[1] + o.lz, pw);
+      armR.current.rotation.z = THREE.MathUtils.lerp(bRz, pr[1] + o.rz, pw);
+      foreL.current.rotation.x = THREE.MathUtils.lerp(bFl, fl + o.fl, pw);
+      foreR.current.rotation.x = THREE.MathUtils.lerp(bFr, fr + o.fr, pw);
     }
     if (hips.current) {
-      hips.current.position.y = 0.88 + Math.abs(Math.sin(w)) * 0.012 * sp + Math.sin(t * 1.4) * 0.003;
-      hips.current.rotation.z = Math.sin(w) * 0.025 * sp + (stuck ? Math.sin(t * 22) * 0.05 : 0);
+      hips.current.position.y = 0.88 - sit * 0.39 + Math.abs(Math.sin(w)) * (0.012 + run * 0.02) * sp + Math.sin(t * 1.4) * 0.003;
+      hips.current.rotation.z = Math.sin(w) * (0.025 + run * 0.03) * sp + (stuck ? Math.sin(t * 22) * 0.05 : 0);
+    }
+    if (upper.current) {
+      const lean = (pose?.lean ?? 0) * pw + o.lean - (m.stage === 2 ? 0.14 : m.stage >= 3 ? 0.08 : 0) - m.flinch * 0.45 + run * 0.16;
+      upper.current.rotation.x = THREE.MathUtils.damp(upper.current.rotation.x, lean, 10, 1 / 60);
+      upper.current.position.y = -sit * 0.0;
+      const breathe = a === 'breathe' || m.stage === 0 ? 1 + Math.sin(t * 1.6) * 0.008 : 1;
+      upper.current.scale.y = breathe;
+    }
+    for (const key in propRefs.current) {
+      const g = propRefs.current[key];
+      if (g) g.visible = !!pose && pose.prop === key && pw > 0.5 && m.stage < 3;
     }
     if (head.current) {
-      head.current.rotation.x = Math.sin(t * 0.8) * 0.02 - (scared ? 0.18 : 0);
+      head.current.rotation.x = Math.sin(t * 0.8) * 0.02 - (scared ? 0.18 : 0) + (pose?.headX ?? 0) * pw * (m.stage >= 2 ? 0 : 1) - m.flinch * 0.3;
+      head.current.rotation.y = THREE.MathUtils.clamp(m.look, -1.1, 1.1) + o.hy;
       head.current.rotation.z = stuck ? Math.sin(t * 24) * 0.12 : 0;
     }
     if (lid.current) {
@@ -139,6 +247,7 @@ export const HumanModel = forwardRef<THREE.Group, HumanProps>(function HumanMode
             </group>
           </group>
         ))}
+        <group ref={upper}>
         {style === 'dress' && (
           <mesh position={[0, -0.18, 0]} castShadow>
             <cylinderGeometry args={[0.17, 0.3, 0.5, 32, 1, true]} />
@@ -193,6 +302,7 @@ export const HumanModel = forwardRef<THREE.Group, HumanProps>(function HumanMode
               </mesh>
               <group position={[0, -0.3, 0]} scale={[s, 1, 1]}>
                 <Hand skin={pale} />
+                {s === 1 && <HeldProps registry={propRefs} />}
                 {weapon && s === 1 && (
                   <group position={[0, -0.08, 0.04]} rotation={[0.3, 0, 0]}>
                     {weapon === 'slipper' ? (
@@ -302,6 +412,7 @@ export const HumanModel = forwardRef<THREE.Group, HumanProps>(function HumanMode
               <meshStandardMaterial color="#cfcfcf" roughness={0.6} />
             </mesh>
           )}
+        </group>
         </group>
       </group>
     </group>

@@ -6,6 +6,25 @@ let detachCurrent: (() => void) | null = null;
 
 export const isLocked = () => !!document.pointerLockElement;
 
+export const cursor = { free: false };
+
+function setCursorFree(free: boolean) {
+  if (cursor.free === free) return;
+  cursor.free = free;
+  window.dispatchEvent(new Event('cursor-change'));
+}
+
+function toggleCursor() {
+  if (cursor.free) {
+    setCursorFree(false);
+    lockPointer();
+  } else {
+    setCursorFree(true);
+    clearInput();
+    releasePointer();
+  }
+}
+
 export function lockPointer() {
   const canvas = document.querySelector<HTMLElement>(SCENE);
   if (!canvas || document.pointerLockElement) return;
@@ -25,12 +44,14 @@ const screen = () => useGame.getState().screen;
 
 function pause() {
   clearInput();
+  setCursorFree(false);
   useGame.getState().setScreen('paused');
   releasePointer();
 }
 
 export function attachControls() {
   detachCurrent?.();
+  const unsubscribe = useGame.subscribe((s) => { if (s.screen !== 'game') setCursorFree(false); });
 
   const setKey = (code: string, down: boolean, repeat: boolean) => {
     switch (code) {
@@ -59,6 +80,10 @@ export function attachControls() {
     }
     if (screen() === 'loading') return;
     if (screen() !== 'game') return;
+    if (e.code === 'KeyV') {
+      if (!e.repeat) toggleCursor();
+      return;
+    }
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault();
     setKey(e.code, true, e.repeat);
   };
@@ -75,7 +100,7 @@ export function attachControls() {
     if (screen() !== 'game') return;
     const target = e.target as HTMLElement | null;
     if (!isLocked()) {
-      if (target?.closest('.scene') && e.button === 0) lockPointer();
+      if (!cursor.free && target?.closest('.scene') && e.button === 0) lockPointer();
       return;
     }
     if (e.button === 0) input.attack = true;
@@ -92,7 +117,7 @@ export function attachControls() {
     if (!isLocked()) {
       input.aim = false;
       input.attack = false;
-      if (screen() === 'game') pause();
+      if (screen() === 'game' && !cursor.free) pause();
     }
   };
   const onBlur = () => clearInput();
@@ -111,6 +136,7 @@ export function attachControls() {
   document.addEventListener('visibilitychange', onVisibility);
 
   detachCurrent = () => {
+    unsubscribe();
     window.removeEventListener('keydown', onKeyDown);
     window.removeEventListener('keyup', onKeyUp);
     window.removeEventListener('mousemove', onMouseMove);

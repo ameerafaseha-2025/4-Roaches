@@ -129,13 +129,13 @@ export const MUTATIONS: Record<MutationId, MutationDef> = {
     look: { shell: '#17121f', shellLight: '#2c2140', leg: '#0d0a12', wing: '#3a2a55', accent: '#a77bff', glow: '#7a4fd0', eye: '#d6b8ff', scale: 1, body: [0.95, 0.95, 1.04], legThick: 0.95, wingSize: [1, 1], pattern: 'veins', plates: false, crown: false, metal: 0.3 },
   },
   royal: {
-    id: 'royal', name: 'Royal Roach', rarity: 'legendary', price: 800, earnedBy: 6, requiresReached: 6,
+    id: 'royal', name: 'Royal Roach', rarity: 'legendary', price: 800, earnedBy: 5, requiresReached: 5,
     tagline: 'All hail the king of the longkang.',
     desc: 'The ultimate evolution. Strong, sturdy and swift in the air, with a long recharge on its royal power.',
     mods: { maxHealth: 1.3, attackDamage: 1.4, defence: 0.1, movementSpeed: 1.08, flightSpeed: 1.15, flightEnergyConsumption: 0.85, energyRegeneration: 0.8, staminaCapacity: 1.3, staminaRegeneration: 1.2, specialAbilityCooldown: 1.0 },
     ability: { id: 'rage', name: 'ROYAL RAGE', desc: 'Attack +60%, speed +30%, incoming damage halved.', duration: 7, cooldown: 24, energyCost: 0, color: '#ffd35a' },
     pros: ['+30% health, +40% attack', '+30% stamina, energy regeneration', 'Royal Rage'],
-    cons: ['Royal Rage has a long 24s recharge', 'Needs the Boss Domain reached to buy'],
+    cons: ['Royal Rage has a long 24s recharge', 'Needs the Living Room reached to buy'],
     look: { shell: '#b8862c', shellLight: '#e8b84a', leg: '#6b4a14', wing: '#ffd35a', accent: '#fff0b0', glow: '#ffcf4a', eye: '#2a1a04', scale: 1.1, body: [1.06, 1.02, 1.1], legThick: 1.1, wingSize: [1.25, 1.35], pattern: 'royal', plates: false, crown: true, metal: 0.9 },
   },
 };

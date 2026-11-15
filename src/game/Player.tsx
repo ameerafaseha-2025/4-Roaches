@@ -7,14 +7,20 @@ import { LEVELS } from './levels';
 import { input, tutorial } from './input';
 import { prefs } from './prefs';
 import { activateAbility, attackMultiplier, resetAbilities, speedMultiplier, tickAbilities } from '../progression/Abilities';
-import { clipCamera, floorHeight, inHideZone, resolveCollisions, ROOM, sim } from './sim';
+import { clipCamera, door as doorSim, floorHeight, inHideZone, resolveCollisions, ROOM, sim, sim_prompt } from './sim';
 import { DIMS, HUMAN_SCALE } from './world';
-import { setWingBuzz, sound } from './sound';
+import { distanceToDoor, requestOpen, resetDoor } from './door';
+import { doorSfx, footstep, setWingBuzz, sound } from './sound';
 import { useGame } from './store';
 
 const tmp = new THREE.Vector3();
 const dirV = new THREE.Vector3();
 const wish = new THREE.Vector3();
+const rightV = new THREE.Vector3();
+const focusV = new THREE.Vector3();
+const desiredV = new THREE.Vector3();
+const clippedV = new THREE.Vector3();
+const camDirV = new THREE.Vector3();
 const FACE_REACH = 0.42;
 const ATTACK_RANGE = 3.4;
 const AIM_RANGE = 5.4;
@@ -22,6 +28,7 @@ const WINDUP = 0.16;
 const LUNGE = 0.3;
 const RECOVER = 0.32;
 const ATTACK_COST = 6;
+let doorHint = 0;
 
 const angleDiff = (a: number, b: number) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
 
@@ -30,7 +37,9 @@ function faceReach(level: number, i: number) {
 }
 
 function alive(level: number, i: number) {
-  return !useGame.getState().cleared.includes(`L${level}-H${i}`);
+  const s = useGame.getState();
+  if (LEVELS[level - 1].humans[i]?.role === 'mak' && !s.bossActive) return false;
+  return !s.cleared.includes(`L${level}-H${i}`);
 }
 
 function pickTarget(level: number, p: THREE.Vector3, range: number, camFwd: THREE.Vector3, needFacing: boolean) {
@@ -78,6 +87,14 @@ export function Player({ level, runId }: { level: number; runId: number }) {
     sim.humanFwd.length = 0;
     sim.cool.length = 0;
     sim.recoil.length = 0;
+    sim.notice.length = 0;
+    sim.npcs.length = 0;
+    sim.exitQueue.length = 0;
+    doorHint = 0;
+    const dd = DIMS[LEVELS[level - 1].theme].door;
+    if (dd) resetDoor(dd.z, dd.w, dd.h);
+    doorSim.fade = 0;
+    sim_prompt.text = '';
     resetAbilities();
     return () => setWingBuzz(false);
   }, [level, runId]);
@@ -107,8 +124,8 @@ export function Player({ level, runId }: { level: number; runId: number }) {
     input.mouseX = 0;
     input.mouseY = 0;
 
-    const camFwd = dirV.set(-Math.sin(sim.camYaw), 0, -Math.cos(sim.camYaw)).clone();
-    const camRight = new THREE.Vector3(Math.cos(sim.camYaw), 0, -Math.sin(sim.camYaw));
+    const camFwd = dirV.set(-Math.sin(sim.camYaw), 0, -Math.cos(sim.camYaw));
+    const camRight = rightV.set(Math.cos(sim.camYaw), 0, -Math.sin(sim.camYaw));
     const moveF = Number(input.forward) - Number(input.backward) + input.stickY;
     const moveR = Number(input.right) - Number(input.left) + input.stickX;
     const moveLen = Math.min(1, Math.hypot(moveF, moveR));
@@ -140,9 +157,16 @@ export function Player({ level, runId }: { level: number; runId: number }) {
       if (sim.stuckTo < 0) activateAbility(wish.x, wish.z, sim.yaw);
     }
 
+    const nearExit = spec.kind !== 'boss' && doorSim.exiting === 0 && !!DIMS[spec.theme].door && distanceToDoor() < 2.8 && p.y < doorSim.height;
     if (input.hide) {
       input.hide = false;
-      if (sim.hideOn) { sim.hideOn = false; store.toast('YOU CREEP OUT OF COVER'); }
+      if (nearExit && !sim.hideOn) {
+        if (store.exitUnlocked) requestOpen();
+        else {
+          doorSfx.locked();
+          store.toast(`DOOR LOCKED. TERRIFY ${spec.humans.length - store.cleared.length} MORE`);
+        }
+      } else if (sim.hideOn) { sim.hideOn = false; store.toast('YOU CREEP OUT OF COVER'); }
       else if (performance.now() / 1000 < sim.hideCooldownUntil) store.toast('HIDING RECOVERS IN ' + Math.ceil(sim.hideCooldownUntil - performance.now() / 1000) + 's');
       else if (!sim.flying && sim.grounded && inHideZone(p)) { sim.hideOn = true; sim.hideSince = performance.now() / 1000; tutorial.hid = true; store.toast('HIDDEN. HUMANS CANNOT SEE YOU'); sound('ui'); }
       else store.toast('NO COVER NEARBY. TRY UNDER THE VANITY');
@@ -286,10 +310,23 @@ export function Player({ level, runId }: { level: number; runId: number }) {
     }
     sim.hidden = sim.hideOn || sim.fx.veil > 0;
 
-    const door = DIMS[spec.theme].door;
-    const nearDoor = !!door && p.x < -ROOM.halfX + 1.1 && Math.abs(p.z - door.z) < door.w / 2 && p.y < door.h;
-    if (spec.kind !== 'feast' && store.exitUnlocked && nearDoor) store.advance();
-    if (spec.kind === 'feast' && store.exitUnlocked) store.advance();
+    sim_prompt.text = nearExit && doorSim.state === 'closed' ? (store.exitUnlocked ? 'PRESS E TO OPEN' : 'LOCKED') : '';
+    sim_prompt.sub = !store.exitUnlocked ? `${spec.humans.length - store.cleared.length} left to terrify` : '';
+    if (doorHint < 0) doorHint = 0;
+    if (nearExit && store.exitUnlocked && doorSim.state === 'open') doorSim.holdUntil = Math.max(doorSim.holdUntil, now + 2);
+    if (spec.kind !== 'boss' && store.exitUnlocked && doorSim.state === 'open' && doorSim.exiting === 0 && p.x < -ROOM.halfX - 0.2) {
+      doorSim.exiting = 1;
+      doorSim.exitStart = now;
+    }
+    if (doorSim.exiting === 1) {
+      const run = now - doorSim.exitStart;
+      doorSim.fade = THREE.MathUtils.clamp((run - 0.5) / 0.9, 0, 1);
+      if (sim.grounded && Math.hypot(v.x, v.z) > 0.4) footstep();
+      if (doorSim.fade >= 1) {
+        doorSim.exiting = 2;
+        store.advance();
+      }
+    }
 
     setWingBuzz(sim.flying, wantsSprint ? 1.6 : 1);
     sim.shake = Math.max(0, sim.shake - dt * 1.8);
@@ -341,13 +378,13 @@ export function CameraRig({ resetKey }: { resetKey: string }) {
     const dt = Math.min(delta, 0.04);
     const s = state.current;
     const p = sim.position;
-    const focus = new THREE.Vector3(p.x, p.y + 0.28, p.z);
+    const focus = focusV.set(p.x, p.y + 0.28, p.z);
     const aim = sim.aiming;
     const wanted = (sim.flying ? 3.0 : 2.4) * (aim ? 0.72 : 1) * (sim.sprinting ? 1.12 : 1);
     const cp = Math.cos(sim.camPitch);
-    const dir = new THREE.Vector3(Math.sin(sim.camYaw) * cp, Math.sin(sim.camPitch), Math.cos(sim.camYaw) * cp);
-    const desired = focus.clone().addScaledVector(dir, wanted);
-    const clipped = new THREE.Vector3();
+    const dir = camDirV.set(Math.sin(sim.camYaw) * cp, Math.sin(sim.camPitch), Math.cos(sim.camYaw) * cp);
+    const desired = desiredV.copy(focus).addScaledVector(dir, wanted);
+    const clipped = clippedV;
     const reach = clipCamera(focus, desired, clipped);
     const allowed = Math.min(wanted, Math.max(0.5, reach));
     if (s.init) { s.dist = allowed; s.init = false; }

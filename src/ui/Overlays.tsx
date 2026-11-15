@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { LEVELS } from '../game/levels';
+import { LEVELS, TOTALS, roleOfKey } from '../game/levels';
 import { sound } from '../game/sound';
 import { useGame } from '../game/store';
 import { lockPointer } from '../game/controls';
@@ -54,6 +54,7 @@ export function HowToPlay() {
         <h3>Combat</h3>
         <div className="row"><Mouse button="left" />Primary attack: lunge at a face</div>
         <div className="row"><Mouse button="right" />Hold to aim and lock on to a human</div>
+        <div className="row"><kbd>V</kbd>Show or hide the cursor without pausing</div>
         <div className="row"><kbd>Esc</kbd>Pause and release the mouse</div>
       </div>
     </ScreenFrame>
@@ -92,6 +93,26 @@ function CountUp({ to }: { to: number }) {
 
 const fmtTime = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 
+function Achievements() {
+  const s = useGame();
+  const keys = s.claimed.filter((k) => k.startsWith('terrify:'));
+  const by = (role: string) => keys.filter((k) => roleOfKey(k.slice(8)) === role).length;
+  const stats: [string, string][] = [
+    ['People terrified', `${by('person')} / ${TOTALS.person}`],
+    ['Janitors defeated', `${by('janitor')} / ${TOTALS.janitor}`],
+    ['Mak Lipas', by('mak') ? 'Defeated' : 'Unbeaten'],
+    ['Lifetime Crumb Coins', String(s.lifetimeCoins)],
+    ['Coins in hand', String(s.coins)],
+    ['Score', String(s.score)],
+    ['Forms unlocked', `${s.owned.length} / 6`],
+  ];
+  return (
+    <div className="achv">
+      {stats.map(([k, v]) => <div key={k}><span>{k}</span><b className="num">{v}</b></div>)}
+    </div>
+  );
+}
+
 export function VictoryScreen() {
   const s = useGame();
   const r = s.result;
@@ -103,10 +124,11 @@ export function VictoryScreen() {
   return (
     <div className="result">
       <div className="result-card win">
-        <span className="eyebrow">{final ? 'The end' : spec.kind === 'boss' ? 'Boss defeated' : 'Room cleared'}</span>
-        <h2 className="banner" style={{ marginTop: 14 }}>{final ? 'A feast for the fallen' : spec.kind === 'boss' ? 'The stairs are open' : 'Cleared'}</h2>
+        <span className="eyebrow">{final ? 'The end' : 'Room cleared'}</span>
+        <h2 className="banner" style={{ marginTop: 14 }}>{final ? 'A feast for the fallen' : 'Cleared'}</h2>
         <p className="sub">{final ? 'He ate for the family he lost, and the house was his at last.' : `${spec.name} completed in ${fmtTime(r.time)}.`}</p>
         <div className="rule" />
+        {final && <Achievements />}
         <div className="rewards">
           {r.rewards.length === 0 && <div className="reward" style={{ animationDelay: '.3s' }}><span>No new rewards. Replays pay only for objectives you have not claimed.</span></div>}
           {r.rewards.map((w, i) => (
@@ -116,7 +138,7 @@ export function VictoryScreen() {
         </div>
         {r.newMutations.length > 0 && <div className="unlock-banner">New mutation unlocked: {r.newMutations.map((m) => MUTATIONS[m].name).join(', ')}</div>}
         <div className="result-actions">
-          {!final && next <= LEVELS.length && <Btn primary onClick={() => s.startLevel(next)}>{spec.kind === 'boss' ? 'Climb the stairs' : 'Next room'}</Btn>}
+          {!final && next <= LEVELS.length && <Btn primary onClick={() => s.startLevel(next)}>Next room</Btn>}
           <Btn onClick={() => s.navigate('evolution')}>Mutations & Skills</Btn>
           <Btn onClick={() => s.navigate('shop')}>Shop</Btn>
           <Btn onClick={() => s.startLevel(r.level)}>Replay</Btn>

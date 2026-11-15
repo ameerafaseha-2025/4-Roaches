@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { GameCanvas } from '../game/Game';
 import { clearInput } from '../game/input';
-import { attachControls, isLocked, lockPointer, releasePointer } from '../game/controls';
+import { attachControls, cursor, isLocked, lockPointer, releasePointer } from '../game/controls';
 import { LEVELS } from '../game/levels';
 import { startMusic, stopMusic } from '../game/sound';
 import { useGame } from '../game/store';
 import { IntroOverlay } from '../cinematic/IntroOverlay';
+import { FinaleOverlay } from '../cinematic/Finale';
+import { DoorFade, DoorPrompt } from './DoorUi';
 import { Hud } from './Hud';
 import { LoadingScreen } from './LoadingScreen';
 import { LevelSelect } from './LevelSelect';
@@ -21,20 +23,14 @@ export default function App() {
   const inGame = useGame((s) => s.inGame);
   const startLevel = useGame((s) => s.startLevel);
   const setScreen = useGame((s) => s.setScreen);
-  const [, tick] = useState(0);
   const touchDevice = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
   const spec = LEVELS[level - 1];
   const showHud = inGame && ['game', 'paused', 'game-over', 'level-complete', 'ending'].includes(screen);
   const bootArgs = useRef(false);
 
   useEffect(() => {
-    const id = window.setInterval(() => tick((n) => n + 1), 100);
-    return () => window.clearInterval(id);
-  }, []);
-
-  useEffect(() => {
     if (screen === 'loading') return;
-    if (screen === 'intro' || screen === 'paused') stopMusic();
+    if (screen === 'intro' || screen === 'finale' || screen === 'paused') stopMusic();
     else startMusic();
   }, [screen]);
 
@@ -75,11 +71,14 @@ export default function App() {
       {screen === 'how-to-play' && <HowToPlay />}
       {screen === 'credits' && <Credits />}
       {screen === 'intro' && <IntroOverlay onFinish={() => startLevel(1)} />}
+      {screen === 'finale' && <FinaleOverlay />}
 
       {showHud && <Hud onPause={pause} />}
       {screen === 'game' && <MobilePad />}
       {screen === 'game' && spec.intro && <div className="intro-chip" key={`${level}-${useGame.getState().runId}`}>{spec.intro}</div>}
-      {screen === 'game' && !isLocked() && !touchDevice && <button className="lock-prompt" onClick={() => lockPointer()}>CLICK TO CONTROL CAMERA</button>}
+      {screen === 'game' && !touchDevice && <LockPrompt />}
+      {screen === 'game' && <DoorPrompt />}
+      {inGame && <DoorFade />}
 
       {screen === 'paused' && <PauseMenu />}
       {screen === 'game-over' && <GameOverScreen />}
@@ -88,6 +87,22 @@ export default function App() {
       <LoadingGate />
     </main>
   );
+}
+
+function LockPrompt() {
+  const [, bump] = useState(0);
+  useEffect(() => {
+    const sync = () => bump((n) => n + 1);
+    document.addEventListener('pointerlockchange', sync);
+    window.addEventListener('cursor-change', sync);
+    return () => {
+      document.removeEventListener('pointerlockchange', sync);
+      window.removeEventListener('cursor-change', sync);
+    };
+  }, []);
+  if (isLocked()) return null;
+  if (cursor.free) return <button className="lock-prompt free" onClick={() => { cursor.free = false; lockPointer(); window.dispatchEvent(new Event('cursor-change')); }}>CURSOR FREE <kbd>V</kbd> OR CLICK TO LOCK</button>;
+  return <button className="lock-prompt" onClick={() => lockPointer()}>CLICK TO CONTROL CAMERA</button>;
 }
 
 function LoadingGate() {
